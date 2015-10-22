@@ -1,0 +1,26 @@
+name := "modellab"
+
+Common.settings
+
+libraryDependencies ++= Seq(
+  Library.scalaTest,
+  Library.logbackClassic,
+  Library.sparkCore,
+  Library.sprayHttpx, Library.sprayCan, Library.sprayRouting, Library.akka,
+  Library.shapeless,
+  Library.scalaz,
+  "io.spray"        %% "spray-json"    % "1.3.1",
+  "com.azavea.geotrellis" %% "geotrellis-spark" % Version.geotrellis)
+
+initialCommands in console :=
+  """
+  import geotrellis.raster._
+  import geotrellis.vector._
+  import geotrellis.proj4._
+  import geotrellis.spark._
+  import geotrellis.spark.utils._
+  import geotrellis.spark.tiling._
+  import shapeless._
+  import syntax.singleton._ ; import record._
+  import scalaz._
+  """
