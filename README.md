@@ -37,3 +37,5 @@ These are NLCD breaks
 
 ### Layer TMS
 GET: `/<layer-guid>/{z}/{x}/{y}.png?breaks=<color-breaks-name>`
+
+[Testing Leaflet Map](sample/leaflet.html)
