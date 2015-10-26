@@ -34,8 +34,8 @@ class LayerRegistry {
     val requestKey = SpatialKey(col, row)
     val storedKey = resize.getStoredKey(requestKey)
     val bounds = buffer(storedKey, 1)    
-    getLayer(guid).map { window =>
-      val tiles = window(zoom, bounds).lookup(storedKey)
+    getLayer(guid).map { node =>
+      val tiles = node(zoom, bounds).lookup(storedKey)
       resize.getTile(requestKey, tiles.head)
     }
   }
