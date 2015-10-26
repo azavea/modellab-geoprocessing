@@ -30,35 +30,15 @@ import spray.json._
 import spray.routing._
 
 
-object Service extends SimpleRoutingApp /*with DataHubCatalog*/  with App {
+object Service extends SimpleRoutingApp with App {
   implicit val system = ActorSystem("spray-system")
-  // implicit val sparkContext = SparkUtils.createSparkContext("Catalog")
-  // implicit val sc = geotrellis.spark.utils.SparkUtils.createLocalSparkContext("local[*]", "Model Service")
   
   import scala.collection.mutable
   
   val colorBreaks = mutable.HashMap.empty[String, ColorBreaks]
 
-  // val regsitry = new LayerRegistry
-  // val parser = new Parser(regsitry, layerReader)
-
-  // // Testing: Auto load some Op definitions.
-  // parser.parse(TestNodes.maskCities)
-  // parser.parse(TestNodes.maskForest)
-
   val resize = new ResizeTile(256, 512)
   val buffer = 1
-
-  // def registerLayerRoute = post {
-  //   requestInstance { req =>
-  //     complete {
-  //       val json = req.entity.asString.parseJson
-  //       val node = parser.parse(json)
-  //       println(s"Registered: $node")        
-  //       StatusCodes.Accepted
-  //     }
-  //   }
-  // }
 
   def registerColorBreaksRoute = 
     pathPrefix(Segment) { breaksName =>
@@ -84,24 +64,6 @@ object Service extends SimpleRoutingApp /*with DataHubCatalog*/  with App {
       }
     }
 
-  // def guidRoute = pathPrefix(Segment / IntNumber / IntNumber / IntNumber) { (guid, zoom, x, y) =>
-  //   parameters('breaks.?) { breaksName =>
-  //     respondWithMediaType(MediaTypes.`image/png`) {
-  //       complete{ future {
-  //         regsitry.getTile(guid, zoom - 1, x, y)
-  //           .map { tile =>
-  //             {
-  //               for {
-  //                 name <- breaksName
-  //                 breaks <- colorBreaks.get(name)
-  //               } yield tile.renderPng(breaks).bytes
-  //             }.getOrElse(tile.renderPng().bytes )
-  //           }
-  //       } }
-  //     }
-  //   }
-  // }
-
   def tileRoute = pathPrefix("tile" / Segment / IntNumber / IntNumber / IntNumber) { (expr, zoom, x, y) =>
     parameters('breaks.?) { breaksName =>
       respondWithMediaType(MediaTypes.`image/png`) {
@@ -126,6 +88,6 @@ object Service extends SimpleRoutingApp /*with DataHubCatalog*/  with App {
   }
 
   startServer(interface = "0.0.0.0", port = 8888) {
-    tileRoute /* ~ guidRoute ~ path("register"){registerLayerRoute} */ ~ pathPrefix("breaks"){registerColorBreaksRoute}
+    tileRoute ~ pathPrefix("breaks"){registerColorBreaksRoute}
   }
 }
