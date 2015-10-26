@@ -55,8 +55,6 @@ object Service extends SimpleRoutingApp with DataHubCatalog  with App {
   parser.parse(TestNodes.maskCities)
   parser.parse(TestNodes.maskForest)
 
-  val pingPong = path("ping")(complete("pong"))
-
   def registerLayerRoute = post {
     requestInstance { req =>
       complete {
@@ -111,6 +109,6 @@ object Service extends SimpleRoutingApp with DataHubCatalog  with App {
   }
 
   startServer(interface = "0.0.0.0", port = 8888) {
-    pingPong ~ guidRoute ~ path("register"){registerLayerRoute} ~ pathPrefix("breaks"){registerColorBreaksRoute}
+    guidRoute ~ path("register"){registerLayerRoute} ~ pathPrefix("breaks"){registerColorBreaksRoute}
   }
 }
