@@ -36,11 +36,13 @@ trait DataHubCatalog extends Catalog {
   private val bucket = "azavea-datahub"
   private val key = "catalog"
 
+  val cache = (id: LayerId) => new FileCache(s"/Users/eugene/tmp/model-lab/cache/${id.name}/${id.zoom}", _.toString)
+
   lazy val layerReader = new S3LayerReader[SpatialKey, Tile, RasterRDD[SpatialKey]](
       new S3AttributeStore(bucket, key),
       new S3RDDReader[SpatialKey, Tile],
       None) {
-    override val defaultNumPartitions = 1
+    override val defaultNumPartitions = math.max(1, sc.defaultParallelism)
 
     override def read(id: LayerId, rasterQuery: RDDQuery[SpatialKey, MetaDataType], numPartitions: Int): RasterRDD[SpatialKey] = {
       println(s"layerReader.read($id)")
