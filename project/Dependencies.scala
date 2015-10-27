@@ -1,7 +1,7 @@
 import sbt._
 
 object Version {
-  val geotrellis   = "0.10.0-97834e6"
+  val geotrellis   = "0.10.0-SNAPSHOT"
   val logback      = "1.1.2"
   val scala        = "2.10.6"
   val scalaTest    = "2.2.0"
