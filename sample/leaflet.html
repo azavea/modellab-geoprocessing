@@ -31,13 +31,13 @@
 
         var nlcdUrl = 'http://localhost:8888/7c6173e2-cdfb-4401-b3e9-f9b3d4da3c0e/{z}/{x}/{y}.png?breaks=nlcd';
         var nlcdCitiesMaskUrl = 'http://localhost:8888/80ef666c-cities/{z}/{x}/{y}.png?breaks=nlcd';
-        var nlcdForestMaskUrl = 'http://localhost:8888/80ef666c-forest/{z}/{x}/{y}.png?breaks=nlcd';
+        var nlcdFocalUrl = 'http://localhost:8888/80ef666c-focal/{z}/{x}/{y}.png?breaks=nlcd';
         var baseMbUrl = 'https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6IjZjNmRjNzk3ZmE2MTcwOTEwMGY0MzU3YjUzOWFmNWZhIn0.Y8bhBaUMqFiPrDRW9hieoQ';
 
         var base   = L.tileLayer(baseMbUrl, {id: 'mapbox.streets'});
         var nlcd = L.tileLayer(nlcdUrl, {maxNativeZoom: 13});
         var nlcd_city  = L.tileLayer(nlcdCitiesMaskUrl, {maxNativeZoom: 13});
-        var nlcd_forest  = L.tileLayer(nlcdForestMaskUrl, {maxNativeZoom: 13});
+        var nlcd_focal  = L.tileLayer(nlcdFocalUrl, {maxNativeZoom: 13});
 
     var map = L.map('map', {
       center: [39.9500, -75.1667],
@@ -48,7 +48,7 @@
     var baseLayers = {
       "nlcd": nlcd,
       "nlcd_city": nlcd_city,
-      "nlcd_forest": nlcd_forest
+      "nlcd_focal": nlcd_focal
     };
 
     var overlays = {
