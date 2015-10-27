@@ -33,6 +33,10 @@ class ResizeTile(requestSize: Int, storedSize: Int) {
   require(storedSize % requestSize == 0, "requestSize must be a multiple of storedSize" )
   val factor = storedSize / requestSize
 
+  def getStoredLayerId(id: LayerId): LayerId = {
+    LayerId(id.name, id.zoom - (math.log(4) / math.log(2)).toInt)
+  }
+
   def getStoredKey(requestKey: SpatialKey) = {
     val SpatialKey(col, row) = requestKey
     SpatialKey(col / factor, row / factor)
