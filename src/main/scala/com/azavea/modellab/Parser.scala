@@ -70,11 +70,26 @@ class Parser(layerRegistry: LayerRegistry, layerReader: FilteringLayerReader[Lay
 
       FocalOp(inputs.head, n, Sum.apply)
     }
+    
+    case "LocalSubtract" => json => {
+      val inputs = json.inputs
+      LocalSubtract(inputs(0), inputs(1))
+    }
+
+    case "LocalMultiply" => json => {
+      val inputs = json.inputs
+      LocalMultiply(inputs(0), inputs(1))
+    }
+
+    case "LocalDivide" => json => {
+      val inputs = json.inputs
+      LocalDivide(inputs(0), inputs(1))
+    }
 
     case "ValueMask" => json => {
       ValueMask(json.inputs.head, json.param[Seq[Int]]("masks"))
     }
-  }  
+  }
 
   def parse(json: JsValue): Node = nodeReader.read(json)
 }

@@ -76,6 +76,30 @@ case class LocalAdd(a: Node, b: Node) extends Node {
   }
 }
 
+case class LocalSubtract(a: Node, b: Node) extends Node {
+  def calc(zoom: Int, bounds: GridBounds) = {
+    a(zoom, bounds).join(b(zoom, bounds)).map { case (key, (tile1, tile2)) =>
+      key -> Subtract(tile1, tile2)
+    }
+  }
+}
+
+case class LocalMultiply(a: Node, b: Node) extends Node {
+  def calc(zoom: Int, bounds: GridBounds) = {
+    a(zoom, bounds).join(b(zoom, bounds)).map { case (key, (tile1, tile2)) =>
+      key -> Multiply(tile1, tile2)
+    }
+  }
+}
+
+case class LocalDivide(a: Node, b: Node) extends Node {
+  def calc(zoom: Int, bounds: GridBounds) = {
+    a(zoom, bounds).join(b(zoom, bounds)).map { case (key, (tile1, tile2)) =>
+      key -> Divide(tile1, tile2)
+    }
+  }
+}
+
 case class ValueMask(a: Node, masks: Seq[Int]) extends Node {
   def calc(zoom: Int, bounds: GridBounds) = {
     val _masks = masks
