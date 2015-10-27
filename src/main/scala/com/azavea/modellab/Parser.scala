@@ -8,7 +8,7 @@ import geotrellis.spark._
 import geotrellis.spark.io._
 import geotrellis.raster._
 import geotrellis.raster.op.local._
-
+import geotrellis.raster.op.focal._
 import org.apache.spark.storage._
 import scala.collection.mutable
 
@@ -19,6 +19,8 @@ import scala.collection.mutable
  * @param layerReader      used by LoadLayer, which is the leaf in Node object tree
  */
 class Parser(layerRegistry: LayerRegistry, layerReader: FilteringLayerReader[LayerId, SpatialKey, RasterRDD[SpatialKey]]) {
+
+  val windowedReader = new WindowedReader(layerReader, 8)
 
   // define this is a JsonFormat so it can be picked up implicitly
   implicit def nodeReader: JsonFormat[Node] = new JsonFormat[Node] {
@@ -54,11 +56,19 @@ class Parser(layerRegistry: LayerRegistry, layerReader: FilteringLayerReader[Lay
 
   private def readNode: PartialFunction[String, JsValue => Node] = {
     case "LoadLayer" => json =>
-      LoadLayer(json.param[String]("layer_name"), layerReader)
+      LoadLayer(json.param[String]("layer_name"), windowedReader)
 
     case "LocalAdd" => json => {
       val inputs = json.inputs
       LocalAdd(inputs(0), inputs(1))
+    }
+
+    case "FocalSum" => json => {
+      val inputs = json.inputs
+      val n = Square(1)
+      require(inputs.size == 1, "FocalSum expexects one layer input")
+
+      FocalOp(inputs.head, n, Sum.apply)
     }
 
     case "ValueMask" => json => {
