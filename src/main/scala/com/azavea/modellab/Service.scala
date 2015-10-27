@@ -35,13 +35,13 @@ object TestNodes {
   import java.nio.file.Paths;
 
   val maskCities = new String(Files.readAllBytes(Paths.get("sample/sample_mask_cities.json"))).parseJson    
-  val maskForest = new String(Files.readAllBytes(Paths.get("sample/sample_mask_forest.json"))).parseJson    
+  val maskForest = new String(Files.readAllBytes(Paths.get("sample/sample_mask_forest.json"))).parseJson
+  val localAdd = new String(Files.readAllBytes(Paths.get("sample/localAdd.json"))).parseJson
 }
 
 
 object Service extends SimpleRoutingApp with DataHubCatalog  with App {
   implicit val system = ActorSystem("spray-system")
-  //implicit val sparkContext = SparkUtils.createSparkContext("Catalog")
   implicit val sc = geotrellis.spark.utils.SparkUtils.createLocalSparkContext("local[*]", "Model Service")
   
   import scala.collection.mutable
@@ -54,6 +54,7 @@ object Service extends SimpleRoutingApp with DataHubCatalog  with App {
   // Testing: Auto load some Op definitions.
   parser.parse(TestNodes.maskCities)
   parser.parse(TestNodes.maskForest)
+  parser.parse(TestNodes.localAdd)
 
   val pingPong = path("ping")(complete("pong"))
 
