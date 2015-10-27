@@ -68,35 +68,19 @@ case class FocalOp(layer: Node, n: Neighborhood, op: (Tile, Neighborhood, Option
   }
 }
 
-case class LocalAdd(a: Node, b: Node) extends Node {
+case class LocalUnaryOp(op: Function1[Tile, Tile], input: Node) extends Node {
   def calc(zoom: Int, bounds: GridBounds) = {
-    a(zoom, bounds).join(b(zoom, bounds)).map { case (key, (tile1, tile2)) =>
-      key -> Add(tile1, tile2)
-    }
+    input(zoom, bounds) map { case (key, tile) => key -> op(tile) }
   }
 }
 
-case class LocalSubtract(a: Node, b: Node) extends Node {
+case class LocalBinaryOp(op: LocalTileBinaryOp, input: Seq[Node], const: Option[Int] = None) extends Node {
   def calc(zoom: Int, bounds: GridBounds) = {
-    a(zoom, bounds).join(b(zoom, bounds)).map { case (key, (tile1, tile2)) =>
-      key -> Subtract(tile1, tile2)
-    }
-  }
-}
-
-case class LocalMultiply(a: Node, b: Node) extends Node {
-  def calc(zoom: Int, bounds: GridBounds) = {
-    a(zoom, bounds).join(b(zoom, bounds)).map { case (key, (tile1, tile2)) =>
-      key -> Multiply(tile1, tile2)
-    }
-  }
-}
-
-case class LocalDivide(a: Node, b: Node) extends Node {
-  def calc(zoom: Int, bounds: GridBounds) = {
-    a(zoom, bounds).join(b(zoom, bounds)).map { case (key, (tile1, tile2)) =>
-      key -> Divide(tile1, tile2)
-    }
+    input map { _(zoom, bounds) } reduce { _ union _ } combineByKey(
+      (init: Tile) => init,
+      (aggr: Tile, value: Tile) => op(aggr, value),
+      (aggr: Tile, value: Tile) => op(aggr, value)
+    )
   }
 }
 
