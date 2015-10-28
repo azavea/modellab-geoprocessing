@@ -64,7 +64,7 @@ case class FocalOp(layer: Node, n: Neighborhood, op: (Tile, Neighborhood, Option
     println(s"FOCAL: $bounds -> $extended")
     val rdd = layer(zoom, extended)
     FocalOperation(rdd, Square(1), Some(bounds))(geotrellis.raster.op.focal.Min.apply)
-      .filter { case (key, _) => bounds.contains(key.col, key.row) } // filter buffer tiles, they contain no information      
+      .filter { case (key, _) => bounds.contains(key.col, key.row) } // filter buffer tiles, they contain no information
   }
 }
 
@@ -84,11 +84,21 @@ case class LocalBinaryOp(op: LocalTileBinaryOp, input: Seq[Node], const: Option[
   }
 }
 
+case class MappingOp(input: Node, mapFrom: Seq[Int], mapTo: Seq[Int]) extends Node {
+  def calc(zoom: Int, bounds: GridBounds) = {
+    // Distinct is used to
+    val mappings = (mapFrom zip mapTo).toMap
+    input(zoom, bounds) map { case (key, tile) =>
+      key -> tile.map(mappings)
+    }
+  }
+}
+
 case class ValueMask(a: Node, masks: Seq[Int]) extends Node {
   def calc(zoom: Int, bounds: GridBounds) = {
     val _masks = masks
     a(zoom, bounds).map { case (key, tile) =>
       key -> tile.map { v => if (_masks.contains(v)) NODATA else v }
     }
-  }    
+  }
 }

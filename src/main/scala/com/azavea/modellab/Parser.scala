@@ -52,44 +52,38 @@ class Parser(layerRegistry: LayerRegistry, layerReader: FilteringLayerReader[Lay
         .convertTo[T]
 
     def inputs: Seq[Node] = fields("inputs").convertTo[Seq[Node]]
+    def constant: Option[Int] = fields("constant").convertTo[Option[Int]]
+    def masks: Seq[Int] = fields("masks").convertTo[Seq[Int]]
+    def mapFrom: Seq[Int] = fields("map_from").convertTo[Seq[Int]]
+    def mapTo: Seq[Int] = fields("map_to").convertTo[Seq[Int]]
+    def neighborhoodSize: Int = fields("neighborhood_size").convertTo[Int]
   }
 
   private def readNode: PartialFunction[String, JsValue => Node] = {
     case "LoadLayer" => json =>
       LoadLayer(json.param[String]("layer_name"), windowedReader)
 
-    case "LocalAdd" => json => {
-      val inputs = json.inputs
-      LocalBinaryOp(Add, Seq(inputs(0), inputs(1)))
-    }
+    // LocalBinaryOps
+    case "LocalAdd" => json => { LocalBinaryOp(Add, json.inputs, json.constant) }
+    case "LocalSubtract" => json => { LocalBinaryOp(Subtract, json.inputs, json.constant) }
+    case "LocalMultiply" => json => { LocalBinaryOp(Multiply, json.inputs, json.constant) }
+    case "LocalDivide" => json => { LocalBinaryOp(Divide, json.inputs, json.constant) }
 
-    case "LocalSubtract" => json => {
-      val inputs = json.inputs
-      LocalBinaryOp(Subtract, Seq(inputs(0), inputs(1)))
-    }
-
-    case "LocalMultiply" => json => {
-      val inputs = json.inputs
-      LocalBinaryOp(Multiply, Seq(inputs(0), inputs(1)))
-    }
-
-    case "LocalDivide" => json => {
-      val inputs = json.inputs
-      LocalBinaryOp(Divide, Seq(inputs(0), inputs(1)))
-    }
-
-    case "ValueMask" => json => {
-      ValueMask(json.inputs.head, json.param[Seq[Int]]("masks"))
-    }
-
+    // FocalOps
     case "FocalSum" => json => {
       val inputs = json.inputs
-      val n = Square(1)
+      val n = Square(json.neighborhoodSize)
       require(inputs.size == 1, "FocalSum expexects one layer input")
 
       FocalOp(inputs.head, n, Sum.apply)
     }
 
+    // SpecialOps
+    case "ValueMask" => json => { ValueMask(json.inputs.head, json.masks) }
+    case "Mapping" => json => {
+      require(json.mapFrom.size == json.mapFrom.distinct.size, "Each map_from value must be unique")
+      MappingOp(json.inputs.head, json.mapFrom, json.mapTo)
+    }
   }
 
   def parse(json: JsValue): Node = nodeReader.read(json)
