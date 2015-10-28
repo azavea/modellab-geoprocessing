@@ -1,0 +1,30 @@
+sudo: required
+
+language: scala
+
+services:
+  - docker
+
+cache:
+  directories:
+    - $HOME/.ivy2/cache
+    - $HOME/.sbt/boot/
+
+script:
+  - mkdir -p ${HOME}/.sbt
+  - docker run -v ${HOME}/.ivy2:/root/.ivy2 -v ${HOME}/.sbt:/root/.sbt -v ${PWD}:/modellab-geoprocessing -w /modellab-geoprocessing quay.io/azavea/scala:latest ./sbt test
+
+before_deploy:
+  - docker run -v ${HOME}/.ivy2:/root/.ivy2 -v ${HOME}/.sbt:/root/.sbt -v ${PWD}:/modellab-geoprocessing -w /modellab-geoprocessing quay.io/azavea/scala:latest ./sbt assembly
+  - sudo chown ${USER} target/scala-2.10/modellab-geoprocessing-assembly-${TRAVIS_TAG}.jar
+
+deploy:
+  provider: releases
+  api_key:
+    secure: MVSdM3LhXxuXV7ytcxY3VI5WVQ4mkgf3LwW0AbtHJuQjiaew6G/IqNeJzcdDmg38WTQdGd/wcxUQvtqD6bfZyKP35FXvUTSMxLh/BHUhCPSnl5w8I/0dhiCes2JOb/zH4D1Lbrq1OWRHaoFfVnCC4pWNnF6jEwdRsqPPwIRDH6tSmjd/i5O2/1uzoq8yaMnkjnAbSWy/evxA06KEwPVn4ADX6aIqd7dC/vma2pyVQ5bSSyiF7gJwhaK8tH4JZ9Qq9MjJZYIXApUt95D7gl8kEvdpkrIPqzt0wn74HIxmPsIxW2+ZJG35EfmPTDfnSsA7mXAWkAR71nvttpBFM0edLzk992RAHr8KeaCSVizeRDxhVt/PXMJgAfcgPP+RLOl02or53Lm7yf202hTqM67I+0bpG0rJKVMkCejtN3qIadZLu22gCrLIsvBq3eypRW9xdDwtYKUzGu659K+TcUz7uMzr+0Pe2xcVHcnkXjAVZ904NXjEoIjjQc6mNL8Gz/0av+w2wZpYX04JcwkMqdurVxoFT43STSiiV2KYBF06zz8bptJPNX/sK7UK/WebdtstFUrs5Vhg9T/L3pHjCuaivGiVWH4rqGIwcfEpj4ZRuZFWL25Q6cLCtL6eHSbuV+Jju7MQpLgk+FRGTHaPHDZ031dn7AqqVmeuFAtTaZ5uVYo=
+  file:
+    - target/scala-2.10/modellab-geoprocessing-assembly-${TRAVIS_TAG}.jar
+  skip_cleanup: true
+  on:
+    repo: azavea/modellab-geoprocessing
+    tags: true
