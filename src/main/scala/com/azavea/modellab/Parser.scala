@@ -11,6 +11,7 @@ import geotrellis.raster.op.local._
 import geotrellis.raster.op.focal._
 import org.apache.spark.storage._
 import scala.collection.mutable
+import scala.util.Try
 
 
 /**
@@ -34,7 +35,7 @@ class Parser(layerRegistry: LayerRegistry, layerReader: FilteringLayerReader[Lay
         case None =>
           // Register all the guids so they may be rendered
           layerRegistry.registerLayer(guid, readNode(name)(json))
-      }
+      }      
     }
 
     //this is required to make use of DefaultJsonProtocols
@@ -45,45 +46,64 @@ class Parser(layerRegistry: LayerRegistry, layerReader: FilteringLayerReader[Lay
   implicit class withJsonMethods(json: JsValue) {
     val fields = json.asJsObject.fields
     def get[T: JsonReader](name: String) = fields(name).convertTo[T]
-    def param[T: JsonReader](name: String) = 
+    def param[T: JsonReader](name: String): T = 
       fields("parameters")
         .asJsObject
         .fields(name)
         .convertTo[T]
 
+    def optParam[T: JsonReader](name: String): Option[T] = 
+      Try(fields("parameters")
+        .asJsObject
+        .fields(name)
+        .convertTo[T]
+      ).toOption
+
+
     def inputs: Seq[Node] = fields("inputs").convertTo[Seq[Node]]
-    def constant: Option[Int] = fields("constant").convertTo[Option[Int]]
-    def masks: Seq[Int] = fields("masks").convertTo[Seq[Int]]
-    def mapFrom: Seq[Int] = fields("map_from").convertTo[Seq[Int]]
-    def mapTo: Seq[Int] = fields("map_to").convertTo[Seq[Int]]
-    def neighborhoodSize: Int = fields("neighborhood_size").convertTo[Int]
   }
 
   private def readNode: PartialFunction[String, JsValue => Node] = {
     case "LoadLayer" => json =>
       LoadLayer(json.param[String]("layer_name"), windowedReader)
 
-    // LocalBinaryOps
-    case "LocalAdd" => json => { LocalBinaryOp(Add, json.inputs, json.constant) }
-    case "LocalSubtract" => json => { LocalBinaryOp(Subtract, json.inputs, json.constant) }
-    case "LocalMultiply" => json => { LocalBinaryOp(Multiply, json.inputs, json.constant) }
-    case "LocalDivide" => json => { LocalBinaryOp(Divide, json.inputs, json.constant) }
+    case "LocalAdd" => json => {
+      val inputs = json.inputs
+      LocalBinaryOp(Add, inputs, json.optParam[Int]("constant"))
+    }
 
-    // FocalOps
+    case "LocalSubtract" => json => {
+      val inputs = json.inputs
+      LocalBinaryOp(Subtract, inputs, json.optParam[Int]("constant"))
+    }
+
+    case "LocalMultiply" => json => {
+      val inputs = json.inputs
+      LocalBinaryOp(Multiply, inputs, json.optParam[Int]("constant"))
+    }
+
+    case "LocalDivide" => json => {
+      val inputs = json.inputs
+      LocalBinaryOp(Divide, inputs, json.optParam[Int]("constant"))
+    }
+
+    case "ValueMask" => json => {
+      ValueMask(json.inputs.head, json.param[Seq[Int]]("masks"))
+    }
+
+    case "Mapping" => json => {
+      val inputs = json.inputs
+      MappingOp(json.inputs.head, json.param[Seq[Int]]("map_from"), json.param[Seq[Int]]("map_to"))
+    }
+
     case "FocalSum" => json => {
       val inputs = json.inputs
-      val n = Square(json.neighborhoodSize)
+      val n = Square(json.param[Int]("neighborhood_size"))
       require(inputs.size == 1, "FocalSum expexects one layer input")
 
       FocalOp(inputs.head, n, Sum.apply)
     }
 
-    // SpecialOps
-    case "ValueMask" => json => { ValueMask(json.inputs.head, json.masks) }
-    case "Mapping" => json => {
-      require(json.mapFrom.size == json.mapFrom.distinct.size, "Each map_from value must be unique")
-      MappingOp(json.inputs.head, json.mapFrom, json.mapTo)
-    }
   }
 
   def parse(json: JsValue): Node = nodeReader.read(json)
