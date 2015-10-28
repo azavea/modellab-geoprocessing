@@ -86,7 +86,6 @@ case class LocalBinaryOp(op: LocalTileBinaryOp, input: Seq[Node], const: Option[
 
 case class MappingOp(input: Node, mapFrom: Seq[Int], mapTo: Seq[Int]) extends Node {
   def calc(zoom: Int, bounds: GridBounds) = {
-    // Distinct is used to
     val mappings = (mapFrom zip mapTo).toMap
     input(zoom, bounds) map { case (key, tile) =>
       key -> tile.map(mappings)

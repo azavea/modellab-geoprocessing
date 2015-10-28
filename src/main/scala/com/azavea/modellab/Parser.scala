@@ -34,7 +34,7 @@ class Parser(layerRegistry: LayerRegistry, layerReader: FilteringLayerReader[Lay
         case None =>
           // Register all the guids so they may be rendered
           layerRegistry.registerLayer(guid, readNode(name)(json))
-      }      
+      }
     }
 
     //this is required to make use of DefaultJsonProtocols

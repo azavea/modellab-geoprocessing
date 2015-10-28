@@ -48,8 +48,8 @@ object Service extends SimpleRoutingApp with DataHubCatalog  with App {
   
   val colorBreaks = mutable.HashMap.empty[String, ColorBreaks]
 
-  val regsitry = new LayerRegistry
-  val parser = new Parser(regsitry, layerReader)
+  val registry = new LayerRegistry
+  val parser = new Parser(registry, layerReader)
 
   // Testing: Auto load some Op definitions.
   parser.parse(TestNodes.maskCities)
@@ -97,7 +97,7 @@ object Service extends SimpleRoutingApp with DataHubCatalog  with App {
     parameters('breaks.?) { breaksName => 
       respondWithMediaType(MediaTypes.`image/png`) {
         complete{ future {
-          regsitry.getTile(guid, zoom - 1, x, y)            
+          registry.getTile(guid, zoom - 1, x, y)            
             .map { tile =>
               {
                 for {
