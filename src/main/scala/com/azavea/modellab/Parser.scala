@@ -61,6 +61,21 @@ class Parser(layerRegistry: LayerRegistry, layerReader: FilteringLayerReader[Lay
         .convertTo[T]
       ).toOption
 
+    def neighborhood: Neighborhood = json.param[String]("neighborhood_shape") match {
+      case "square" => Square(json.param[Int]("neighborhood_size"))
+      case "circle" => Circle(json.param[Int]("neighborhood_size"))
+      case "nesw" => Nesw(json.param[Int]("neighborhood_size"))
+      case "wedge" => {
+        val nDims = json.param[Seq[Int]]("neighborhood_size")
+        require(nDims.size == 3, "Wedges require exactly 3 parameters")
+        Wedge(nDims(0), nDims(1), nDims(2))
+      }
+      case "ring" => {
+        val nDims = json.param[Seq[Int]]("neighborhood_size")
+        require(nDims.size == 3, "Rings require exactly 2 parameters")
+        Annulus(nDims(0), nDims(1))
+      }
+    }
 
     def inputs: Seq[Node] = fields("inputs").convertTo[Seq[Node]]
   }
@@ -97,42 +112,42 @@ class Parser(layerRegistry: LayerRegistry, layerReader: FilteringLayerReader[Lay
     }
 
     case "FocalSum" => json => {
-      val n = Square(json.param[Int]("neighborhood_size"))
+      val n = json.neighborhood
       require(json.inputs.size == 1, "FocalSum expexects one layer input")
 
       FocalOp(Sum.apply, json.inputs.head, n)
     }
 
     case "FocalMax" => json => {
-      val n = Square(json.param[Int]("neighborhood_size"))
+      val n = json.neighborhood
       require(json.inputs.size == 1, "FocalMax expexects one layer input")
 
       FocalOp(geotrellis.raster.op.focal.Max.apply, json.inputs.head, n)
     }
 
     case "FocalMin" => json => {
-      val n = Square(json.param[Int]("neighborhood_size"))
+      val n = json.neighborhood
       require(json.inputs.size == 1, "FocalMin expexects one layer input")
 
       FocalOp(geotrellis.raster.op.focal.Min.apply, json.inputs.head, n)
     }
 
     case "FocalMean" => json => {
-      val n = Square(json.param[Int]("neighborhood_size"))
+      val n = json.neighborhood
       require(json.inputs.size == 1, "FocalMin expexects one layer input")
 
       FocalOp(geotrellis.raster.op.focal.Mean.apply, json.inputs.head, n)
     }
 
     case "FocalAspect" => json => {
-      val n = Square(json.param[Int]("neighborhood_size"))
+      val n = json.neighborhood
       require(json.inputs.size == 1, "FocalMin expexects one layer input")
 
       AspectOp(Aspect.apply, json.inputs.head, n)
     }
 
     case "FocalSlope" => json => {
-      val n = Square(json.param[Int]("neighborhood_size"))
+      val n = json.neighborhood
       val z = json.param[Double]("z_factor")
       require(json.inputs.size == 1, "FocalMin expexects one layer input")
 
