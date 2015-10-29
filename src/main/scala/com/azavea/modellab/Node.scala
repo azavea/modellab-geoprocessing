@@ -15,13 +15,13 @@ import scala.collection.mutable
 import org.apache.spark.rdd._
 
 object Node {
-  val cache = mutable.HashMap.empty[(Node, Int, GridBounds), RDD[(SpatialKey, Tile)]]
+  val cache = mutable.HashMap.empty[(Node, Int, GridBounds), RasterRDD[SpatialKey]]
 }
 
 trait Node extends Serializable {
-  def calc(zoom: Int, bounds: GridBounds): RDD[(SpatialKey, Tile)]
+  def calc(zoom: Int, bounds: GridBounds): RasterRDD[SpatialKey]
 
-  def apply(zoom: Int, bounds: GridBounds): RDD[(SpatialKey, Tile)] = {
+  def apply(zoom: Int, bounds: GridBounds): RasterRDD[SpatialKey] = {
     // This will backstop calculation of RDDs nodes, hopefully allowing IO nodes to be re-used
     // Critical note: the Node tree will already exist fully.
     val name = s"${this.getClass.getName}::$zoom::$bounds"
@@ -51,7 +51,7 @@ case class LoadLayer(layerName: String, layerReader: WindowedReader) extends Nod
   }
 }
 
-case class FocalOp(layer: Node, n: Neighborhood, op: (Tile, Neighborhood, Option[GridBounds]) => Tile) extends Node {
+case class FocalOp(input: Node, n: Neighborhood, op: (Tile, Neighborhood, Option[GridBounds]) => Tile) extends Node {
   require(n.extent <= 256, "Maximum Neighborhood extent is 256 cells")
   def buffer(bounds: GridBounds, cells: Int) = GridBounds(
     math.max(0, bounds.colMin - cells),
@@ -60,48 +60,61 @@ case class FocalOp(layer: Node, n: Neighborhood, op: (Tile, Neighborhood, Option
     bounds.rowMax + cells)
 
   def calc(zoom: Int, bounds: GridBounds) = {
+    val rasterRDD = input(zoom, bounds)
+    val metaData = rasterRDD.metaData
     val extended = buffer(bounds, 1)
     println(s"FOCAL: $bounds -> $extended")
-    val rdd = layer(zoom, extended)
-    FocalOperation(rdd, Square(1), Some(bounds))(geotrellis.raster.op.focal.Min.apply)
+    val tileRDD = FocalOperation(rasterRDD, Square(1), Some(bounds))(op)
       .filter { case (key, _) => bounds.contains(key.col, key.row) } // filter buffer tiles, they contain no information
+    new RasterRDD(tileRDD, metaData)
   }
 }
 
 case class LocalUnaryOp(op: Function1[Tile, Tile], input: Node) extends Node {
   def calc(zoom: Int, bounds: GridBounds) = {
-    input(zoom, bounds) map { case (key, tile) => key -> op(tile) }
+    val rasterRDD = input(zoom, bounds)
+    val metaData = rasterRDD.metaData
+    val tileRDD = rasterRDD map { case (key, tile) => key -> op(tile) }
+    new RasterRDD(tileRDD, metaData)
   }
 }
 
 case class LocalBinaryOp(op: LocalTileBinaryOp, input: Seq[Node], const: Option[Int] = None) extends Node {
   def calc(zoom: Int, bounds: GridBounds) = {
-    input map { _(zoom, bounds) } reduce { _ union _ } combineByKey(
+    val metaData = input.head(zoom, bounds).metaData
+    val tileRDD = input map { _(zoom, bounds).tileRdd } reduce { _ union _ } combineByKey(
       (init: Tile) => init,
       (aggr: Tile, value: Tile) => op(aggr, value),
       (aggr: Tile, value: Tile) => op(aggr, value)
     )
+    new RasterRDD(tileRDD, metaData)
   }
 }
 
 case class MappingOp(input: Node, mapFrom: Seq[Seq[Int]], mapTo: Seq[Int]) extends Node {
   def calc(zoom: Int, bounds: GridBounds) = {
+    val rasterRDD = input(zoom, bounds)
+    val metaData = rasterRDD.metaData
     val mappings =
       (mapFrom zip mapTo map { case (mappingsFrom, mapTo) =>
         mappingsFrom map { _ -> mapTo }
       }).flatten.toMap
 
-    input(zoom, bounds) map { case (key, tile) =>
+    val tileRDD = rasterRDD map { case (key, tile) =>
       key -> tile.map(mappings)
     }
+    new RasterRDD(tileRDD, metaData)
   }
 }
 
-case class ValueMask(a: Node, masks: Seq[Int]) extends Node {
+case class ValueMask(input: Node, masks: Seq[Int]) extends Node {
   def calc(zoom: Int, bounds: GridBounds) = {
+    val rasterRDD = input(zoom, bounds)
+    val metaData = rasterRDD.metaData
     val _masks = masks
-    a(zoom, bounds).map { case (key, tile) =>
+    val tileRDD = rasterRDD.map { case (key, tile) =>
       key -> tile.map { v => if (_masks.contains(v)) NODATA else v }
     }
+    new RasterRDD(tileRDD, metaData)
   }
 }
