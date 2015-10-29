@@ -26,26 +26,26 @@ trait Node extends Serializable {
     // Critical note: the Node tree will already exist fully.
     val name = s"${this.getClass.getName}::$zoom::$bounds"
     val key = (this, zoom, bounds)
-    
+
     // NOTE: We used to cache here to store every layer and their intermidiate results
     Node.cache.get(key) match {
       case Some(rdd) =>
-        println(s"Pulled Node: $name")    
+        println(s"Pulled Node: $name")
         rdd
 
       case None =>
-        val rdd = 
+        val rdd =
           calc(zoom, bounds)
-            .setName(s"${this.getClass.getName}::$zoom::$bounds")           
+            .setName(s"${this.getClass.getName}::$zoom::$bounds")
             .cache
         Node.cache.update(key, rdd)
-        println(s"PUSHED Node: $name")  
-        rdd          
+        println(s"PUSHED Node: $name")
+        rdd
     }
   }
 }
 
-case class LoadLayer(layerName: String, layerReader: WindowedReader) extends Node { 
+case class LoadLayer(layerName: String, layerReader: WindowedReader) extends Node {
   def calc(zoom: Int, bounds: GridBounds) = {
     layerReader.getView(LayerId(layerName, zoom), bounds)
   }
@@ -54,9 +54,9 @@ case class LoadLayer(layerName: String, layerReader: WindowedReader) extends Nod
 case class FocalOp(layer: Node, n: Neighborhood, op: (Tile, Neighborhood, Option[GridBounds]) => Tile) extends Node {
   require(n.extent <= 256, "Maximum Neighborhood extent is 256 cells")
   def buffer(bounds: GridBounds, cells: Int) = GridBounds(
-    math.max(0, bounds.colMin - cells), 
+    math.max(0, bounds.colMin - cells),
     math.max(0, bounds.rowMin - cells),
-    bounds.colMax + cells, 
+    bounds.colMax + cells,
     bounds.rowMax + cells)
 
   def calc(zoom: Int, bounds: GridBounds) = {
@@ -84,9 +84,13 @@ case class LocalBinaryOp(op: LocalTileBinaryOp, input: Seq[Node], const: Option[
   }
 }
 
-case class MappingOp(input: Node, mapFrom: Seq[Int], mapTo: Seq[Int]) extends Node {
+case class MappingOp(input: Node, mapFrom: Seq[Seq[Int]], mapTo: Seq[Int]) extends Node {
   def calc(zoom: Int, bounds: GridBounds) = {
-    val mappings = (mapFrom zip mapTo).toMap
+    val mappings =
+      (mapFrom zip mapTo map { case (mappingsFrom, mapTo) =>
+        mappingsFrom map { _ -> mapTo }
+      }).flatten.toMap
+
     input(zoom, bounds) map { case (key, tile) =>
       key -> tile.map(mappings)
     }

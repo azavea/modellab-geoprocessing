@@ -30,3 +30,4 @@ initialCommands in console :=
   }
   val parser = new Parser(new LayerRegistry, catalog.layerReader)
   """
+

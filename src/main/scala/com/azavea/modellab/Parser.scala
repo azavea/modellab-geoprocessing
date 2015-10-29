@@ -9,6 +9,7 @@ import geotrellis.spark.io._
 import geotrellis.raster._
 import geotrellis.raster.op.local._
 import geotrellis.raster.op.focal._
+import geotrellis.raster.op.elevation._
 import org.apache.spark.storage._
 import scala.collection.mutable
 import scala.util.Try
@@ -30,12 +31,13 @@ class Parser(layerRegistry: LayerRegistry, layerReader: FilteringLayerReader[Lay
       val name = obj.fields("function_name").convertTo[String]
       val guid = obj.fields("guid").convertTo[String]
       layerRegistry.getLayer(guid) match {
-        case Some(node) => 
+        case Some(node) =>
           node
         case None =>
           // Register all the guids so they may be rendered
+          println(json)
           layerRegistry.registerLayer(guid, readNode(name)(json))
-      }      
+      }
     }
 
     //this is required to make use of DefaultJsonProtocols
@@ -46,13 +48,13 @@ class Parser(layerRegistry: LayerRegistry, layerReader: FilteringLayerReader[Lay
   implicit class withJsonMethods(json: JsValue) {
     val fields = json.asJsObject.fields
     def get[T: JsonReader](name: String) = fields(name).convertTo[T]
-    def param[T: JsonReader](name: String): T = 
+    def param[T: JsonReader](name: String): T =
       fields("parameters")
         .asJsObject
         .fields(name)
         .convertTo[T]
 
-    def optParam[T: JsonReader](name: String): Option[T] = 
+    def optParam[T: JsonReader](name: String): Option[T] =
       Try(fields("parameters")
         .asJsObject
         .fields(name)
@@ -68,23 +70,19 @@ class Parser(layerRegistry: LayerRegistry, layerReader: FilteringLayerReader[Lay
       LoadLayer(json.param[String]("layer_name"), windowedReader)
 
     case "LocalAdd" => json => {
-      val inputs = json.inputs
-      LocalBinaryOp(Add, inputs, json.optParam[Int]("constant"))
+      LocalBinaryOp(Add, json.inputs, json.optParam[Int]("constant"))
     }
 
     case "LocalSubtract" => json => {
-      val inputs = json.inputs
-      LocalBinaryOp(Subtract, inputs, json.optParam[Int]("constant"))
+      LocalBinaryOp(Subtract, json.inputs, json.optParam[Int]("constant"))
     }
 
     case "LocalMultiply" => json => {
-      val inputs = json.inputs
-      LocalBinaryOp(Multiply, inputs, json.optParam[Int]("constant"))
+      LocalBinaryOp(Multiply, json.inputs, json.optParam[Int]("constant"))
     }
 
     case "LocalDivide" => json => {
-      val inputs = json.inputs
-      LocalBinaryOp(Divide, inputs, json.optParam[Int]("constant"))
+      LocalBinaryOp(Divide, json.inputs, json.optParam[Int]("constant"))
     }
 
     case "ValueMask" => json => {
@@ -92,16 +90,38 @@ class Parser(layerRegistry: LayerRegistry, layerReader: FilteringLayerReader[Lay
     }
 
     case "Mapping" => json => {
-      val inputs = json.inputs
-      MappingOp(json.inputs.head, json.param[Seq[Int]]("map_from"), json.param[Seq[Int]]("map_to"))
+      val mapFrom = json.param[Seq[Seq[Int]]]("map_from")
+      val mapTo = json.param[Seq[Int]]("map_to")
+      require(mapFrom.size == mapTo.size, "The number of map_from lists must equal the number of map_to values")
+      MappingOp(json.inputs.head, mapFrom, mapTo)
     }
 
     case "FocalSum" => json => {
-      val inputs = json.inputs
       val n = Square(json.param[Int]("neighborhood_size"))
-      require(inputs.size == 1, "FocalSum expexects one layer input")
+      require(json.inputs.size == 1, "FocalSum expexects one layer input")
 
-      FocalOp(inputs.head, n, Sum.apply)
+      FocalOp(json.inputs.head, n, Sum.apply)
+    }
+
+    case "FocalMax" => json => {
+      val n = Square(json.param[Int]("neighborhood_size"))
+      require(json.inputs.size == 1, "FocalMax expexects one layer input")
+
+      FocalOp(json.inputs.head, n, geotrellis.raster.op.focal.Max.apply)
+    }
+
+    case "FocalMin" => json => {
+      val n = Square(json.param[Int]("neighborhood_size"))
+      require(json.inputs.size == 1, "FocalMin expexects one layer input")
+
+      FocalOp(json.inputs.head, n, geotrellis.raster.op.focal.Min.apply)
+    }
+
+    case "FocalMean" => json => {
+      val n = Square(json.param[Int]("neighborhood_size"))
+      require(json.inputs.size == 1, "FocalMin expexects one layer input")
+
+      FocalOp(json.inputs.head, n, geotrellis.raster.op.focal.Mean.apply)
     }
 
   }
