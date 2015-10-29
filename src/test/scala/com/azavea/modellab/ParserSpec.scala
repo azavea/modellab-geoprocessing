@@ -14,7 +14,7 @@ import java.nio.file.Paths;
 class ParserSpec extends FunSpec with BeforeAndAfterAll {
   implicit val _sc = geotrellis.spark.utils.SparkUtils.createLocalSparkContext("local", "Model Test")
 
-
+/*
   it("should evaluate basic AST"){
     import spray.json._
     import spray.json.DefaultJsonProtocol._
@@ -32,6 +32,7 @@ class ParserSpec extends FunSpec with BeforeAndAfterAll {
     val namedLayer = ast(11, GridBounds(594,774,596,776))
     info(namedLayer.values.first.asciiDraw)    
   }
-
+ */
+  
   override def afterAll() { _sc.stop() }
 }
