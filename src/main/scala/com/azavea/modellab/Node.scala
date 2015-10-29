@@ -74,7 +74,7 @@ case class FocalOp(
   }
 }
 
-case class ElevationOp(
+case class AspectOp(
   op: (Tile, Neighborhood, Option[GridBounds], CellSize) => Tile,
   input: Node,
   n: Neighborhood
@@ -84,6 +84,21 @@ case class ElevationOp(
     val metaData = rasterRDD.metaData
     val cs = metaData.layout.rasterExtent.cellSize
     val tileRDD = rasterRDD map { case (key, tile) => key -> op(tile, n, None, cs) }
+    new RasterRDD(tileRDD, metaData)
+  }
+}
+
+case class SlopeOp(
+  op: (Tile, Neighborhood, Option[GridBounds], CellSize, Double) => Tile,
+  input: Node,
+  n: Neighborhood,
+  z: Double
+) extends Node {
+  def calc(zoom: Int, bounds: GridBounds) = {
+    val rasterRDD = input(zoom, bounds)
+    val metaData = rasterRDD.metaData
+    val cs = metaData.layout.rasterExtent.cellSize
+    val tileRDD = rasterRDD map { case (key, tile) => key -> op(tile, n, None, cs, z) }
     new RasterRDD(tileRDD, metaData)
   }
 }

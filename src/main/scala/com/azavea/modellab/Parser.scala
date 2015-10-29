@@ -128,7 +128,15 @@ class Parser(layerRegistry: LayerRegistry, layerReader: FilteringLayerReader[Lay
       val n = Square(json.param[Int]("neighborhood_size"))
       require(json.inputs.size == 1, "FocalMin expexects one layer input")
 
-      ElevationOp(Aspect.apply, json.inputs.head, n)
+      AspectOp(Aspect.apply, json.inputs.head, n)
+    }
+
+    case "FocalSlope" => json => {
+      val n = Square(json.param[Int]("neighborhood_size"))
+      val z = json.param[Double]("z_factor")
+      require(json.inputs.size == 1, "FocalMin expexects one layer input")
+
+      SlopeOp(Slope.apply, json.inputs.head, n, z)
     }
 
   }
