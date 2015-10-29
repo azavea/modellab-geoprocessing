@@ -100,28 +100,35 @@ class Parser(layerRegistry: LayerRegistry, layerReader: FilteringLayerReader[Lay
       val n = Square(json.param[Int]("neighborhood_size"))
       require(json.inputs.size == 1, "FocalSum expexects one layer input")
 
-      FocalOp(json.inputs.head, n, Sum.apply)
+      FocalOp(Sum.apply, json.inputs.head, n)
     }
 
     case "FocalMax" => json => {
       val n = Square(json.param[Int]("neighborhood_size"))
       require(json.inputs.size == 1, "FocalMax expexects one layer input")
 
-      FocalOp(json.inputs.head, n, geotrellis.raster.op.focal.Max.apply)
+      FocalOp(geotrellis.raster.op.focal.Max.apply, json.inputs.head, n)
     }
 
     case "FocalMin" => json => {
       val n = Square(json.param[Int]("neighborhood_size"))
       require(json.inputs.size == 1, "FocalMin expexects one layer input")
 
-      FocalOp(json.inputs.head, n, geotrellis.raster.op.focal.Min.apply)
+      FocalOp(geotrellis.raster.op.focal.Min.apply, json.inputs.head, n)
     }
 
     case "FocalMean" => json => {
       val n = Square(json.param[Int]("neighborhood_size"))
       require(json.inputs.size == 1, "FocalMin expexects one layer input")
 
-      FocalOp(json.inputs.head, n, geotrellis.raster.op.focal.Mean.apply)
+      FocalOp(geotrellis.raster.op.focal.Mean.apply, json.inputs.head, n)
+    }
+
+    case "FocalAspect" => json => {
+      val n = Square(json.param[Int]("neighborhood_size"))
+      require(json.inputs.size == 1, "FocalMin expexects one layer input")
+
+      ElevationOp(Aspect.apply, json.inputs.head, n)
     }
 
   }

@@ -51,7 +51,11 @@ case class LoadLayer(layerName: String, layerReader: WindowedReader) extends Nod
   }
 }
 
-case class FocalOp(input: Node, n: Neighborhood, op: (Tile, Neighborhood, Option[GridBounds]) => Tile) extends Node {
+case class FocalOp(
+  op: (Tile, Neighborhood, Option[GridBounds]) => Tile,
+  input: Node,
+  n: Neighborhood
+) extends Node {
   require(n.extent <= 256, "Maximum Neighborhood extent is 256 cells")
   def buffer(bounds: GridBounds, cells: Int) = GridBounds(
     math.max(0, bounds.colMin - cells),
@@ -64,13 +68,30 @@ case class FocalOp(input: Node, n: Neighborhood, op: (Tile, Neighborhood, Option
     val metaData = rasterRDD.metaData
     val extended = buffer(bounds, 1)
     println(s"FOCAL: $bounds -> $extended")
-    val tileRDD = FocalOperation(rasterRDD, Square(1), Some(bounds))(op)
+    val tileRDD = FocalOperation(rasterRDD, n, Some(bounds))(op)
       .filter { case (key, _) => bounds.contains(key.col, key.row) } // filter buffer tiles, they contain no information
     new RasterRDD(tileRDD, metaData)
   }
 }
 
-case class LocalUnaryOp(op: Function1[Tile, Tile], input: Node) extends Node {
+case class ElevationOp(
+  op: (Tile, Neighborhood, Option[GridBounds], CellSize) => Tile,
+  input: Node,
+  n: Neighborhood
+) extends Node {
+  def calc(zoom: Int, bounds: GridBounds) = {
+    val rasterRDD = input(zoom, bounds)
+    val metaData = rasterRDD.metaData
+    val cs = metaData.layout.rasterExtent.cellSize
+    val tileRDD = rasterRDD map { case (key, tile) => key -> op(tile, n, None, cs) }
+    new RasterRDD(tileRDD, metaData)
+  }
+}
+
+case class LocalUnaryOp(
+  op: Function1[Tile, Tile],
+  input: Node
+) extends Node {
   def calc(zoom: Int, bounds: GridBounds) = {
     val rasterRDD = input(zoom, bounds)
     val metaData = rasterRDD.metaData
@@ -79,19 +100,36 @@ case class LocalUnaryOp(op: Function1[Tile, Tile], input: Node) extends Node {
   }
 }
 
-case class LocalBinaryOp(op: LocalTileBinaryOp, input: Seq[Node], const: Option[Int] = None) extends Node {
+case class LocalBinaryOp(
+  op: LocalTileBinaryOp,
+  input: Seq[Node],
+  const: Option[Int] = None // Constant value
+) extends Node {
   def calc(zoom: Int, bounds: GridBounds) = {
     val metaData = input.head(zoom, bounds).metaData
-    val tileRDD = input map { _(zoom, bounds).tileRdd } reduce { _ union _ } combineByKey(
-      (init: Tile) => init,
-      (aggr: Tile, value: Tile) => op(aggr, value),
-      (aggr: Tile, value: Tile) => op(aggr, value)
-    )
+    val tileRDD = input
+      .map { _(zoom, bounds).tileRdd }
+      .reduce { _ union _ }
+      .combineByKey(  // For local ops over tiles
+        (init: Tile) => init,
+        (aggr: Tile, value: Tile) => op(aggr, value),
+        (aggr: Tile, value: Tile) => op(aggr, value)
+      ) map { case (k, t) =>  // For constant values
+        k -> (const match {
+          case Some(constant) => { op(t, constant) }
+          case _ => t
+        })
+      }
+
     new RasterRDD(tileRDD, metaData)
   }
 }
 
-case class MappingOp(input: Node, mapFrom: Seq[Seq[Int]], mapTo: Seq[Int]) extends Node {
+case class MappingOp(
+  input: Node,
+  mapFrom: Seq[Seq[Int]],
+  mapTo: Seq[Int]
+) extends Node {
   def calc(zoom: Int, bounds: GridBounds) = {
     val rasterRDD = input(zoom, bounds)
     val metaData = rasterRDD.metaData
@@ -107,7 +145,10 @@ case class MappingOp(input: Node, mapFrom: Seq[Seq[Int]], mapTo: Seq[Int]) exten
   }
 }
 
-case class ValueMask(input: Node, masks: Seq[Int]) extends Node {
+case class ValueMask(
+  input: Node,
+  masks: Seq[Int]
+) extends Node {
   def calc(zoom: Int, bounds: GridBounds) = {
     val rasterRDD = input(zoom, bounds)
     val metaData = rasterRDD.metaData
