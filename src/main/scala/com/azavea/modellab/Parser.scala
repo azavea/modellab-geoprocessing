@@ -35,7 +35,6 @@ class Parser(layerRegistry: LayerRegistry, layerReader: FilteringLayerReader[Lay
           node
         case None =>
           // Register all the guids so they may be rendered
-          println(json)
           layerRegistry.registerLayer(guid, readNode(name)(json))
       }
     }
@@ -49,11 +48,19 @@ class Parser(layerRegistry: LayerRegistry, layerReader: FilteringLayerReader[Lay
     val fields = json.asJsObject.fields
     def get[T: JsonReader](name: String) = fields(name).convertTo[T]
     def inputs: Seq[Node] = fields("inputs").convertTo[Seq[Node]]
-    def param[T: JsonReader](name: String): T =
+    def param[T: JsonReader](name: String): T = {
       fields("parameters")
         .asJsObject
         .fields(name)
         .convertTo[T]
+    }
+    def optionalParam[T: JsonFormat](name: String): Option[T] = {
+      for {
+        paramList <- fields.get("parameters")
+        paramObj <- fields.get(name)
+        value <- paramObj.convertTo[Option[T]]
+      } yield value
+    }
   }
 
 
@@ -86,19 +93,19 @@ class Parser(layerRegistry: LayerRegistry, layerReader: FilteringLayerReader[Lay
       LoadLayer(json.param[String]("layer_name"), windowedReader)
 
     case "LocalAdd" => json => {
-      LocalBinaryOp(Add, json.inputs, json.param[Option[Double]]("constant"))
+      LocalBinaryOp(Add, json.inputs, json.optionalParam[Double]("constant"))
     }
 
     case "LocalSubtract" => json => {
-      LocalBinaryOp(Subtract, json.inputs, json.param[Option[Double]]("constant"))
+      LocalBinaryOp(Subtract, json.inputs, json.optionalParam[Double]("constant"))
     }
 
     case "LocalMultiply" => json => {
-      LocalBinaryOp(Multiply, json.inputs, json.param[Option[Double]]("constant"))
+      LocalBinaryOp(Multiply, json.inputs, json.optionalParam[Double]("constant"))
     }
 
     case "LocalDivide" => json => {
-      LocalBinaryOp(Divide, json.inputs, json.param[Option[Double]]("constant"))
+      LocalBinaryOp(Divide, json.inputs, json.optionalParam[Double]("constant"))
     }
 
     case "Mapping" => json => {
