@@ -116,10 +116,8 @@ case class LocalUnaryOp(
   input: Node
 ) extends Node {
   def calc(zoom: Int, bounds: GridBounds) = {
-    val rasterRDD = input(zoom, bounds)
-    val metaData = rasterRDD.metaData
-    val tileRDD = rasterRDD map { case (key, tile) => key -> op(tile) }
-    new RasterRDD(tileRDD, metaData)
+    val _op = op
+    input(zoom, bounds).mapTiles(_op)
   }
 }
 
@@ -128,21 +126,22 @@ case class LocalBinaryOp(
   input: Seq[Node],
   const: Option[Double] = None // Constant value
 ) extends Node {
-  def calc(zoom: Int, bounds: GridBounds) = {
+  def calc(zoom: Int, bounds: GridBounds) = {    
+    val _op = op
     val metaData = input.head(zoom, bounds).metaData
     val tileRDD = input
       .map { _(zoom, bounds).tileRdd }
       .reduce { _ union _ }
       .reduceByKey(
-        (aggr: Tile, value: Tile) => op(aggr, value)
+        (aggr: Tile, value: Tile) => _op(aggr, value)
       )
 
     val outTile =
       const match {
         case Some(constant) => {  // Have a constant
           metaData.cellType.isFloatingPoint match {  // Constant is floating point
-            case true => tileRDD.map { case (key, tile) => key -> op(tile, constant.toDouble) }
-            case false => tileRDD.map { case (key, tile) => key -> op(tile, constant) }
+            case true => tileRDD.map { case (key, tile) => key -> _op(tile, constant.toDouble) }
+            case false => tileRDD.map { case (key, tile) => key -> _op(tile, constant) }
           }
         }
         case _ => tileRDD  // No constant provided
