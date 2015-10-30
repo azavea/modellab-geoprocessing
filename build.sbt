@@ -23,4 +23,11 @@ initialCommands in console :=
   import shapeless._
   import syntax.singleton._ ; import record._
   import scalaz._
+  import geotrellis.spark.utils.SparkUtils
+  import com.azavea.modellab._
+  val catalog = new DataHubCatalog {
+    implicit val sc = geotrellis.spark.utils.SparkUtils.createLocalSparkContext("local[*]", "Model Service")
+  }
+  val parser = new Parser(new LayerRegistry, catalog.layerReader)
   """
+

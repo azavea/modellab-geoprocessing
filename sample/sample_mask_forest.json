@@ -5,10 +5,10 @@
     {
       "function_name": "LoadLayer",
       "guid": "7c6173e2-cdfb-4401-b3e9-f9b3d4da3c0e",
-      "parameters": 
+      "parameters":
         {
           "layer_name": "nlcd-zoomed"
-        }      
+        }
     }
   ],
   "output": "s3://path/to/80ef666c-4107-4c05-89de-1057777d05a3.tiff/png/txt",

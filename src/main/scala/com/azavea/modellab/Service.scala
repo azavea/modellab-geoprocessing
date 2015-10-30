@@ -34,7 +34,7 @@ object TestNodes {
   import java.nio.file.Files;
   import java.nio.file.Paths;
 
-  val maskCities = new String(Files.readAllBytes(Paths.get("sample/sample_mask_cities.json"))).parseJson    
+  val maskCities = new String(Files.readAllBytes(Paths.get("sample/sample_mask_cities.json"))).parseJson
   val maskForest = new String(Files.readAllBytes(Paths.get("sample/sample_mask_forest.json"))).parseJson
   val localAdd = new String(Files.readAllBytes(Paths.get("sample/localAdd.json"))).parseJson
 }
@@ -43,13 +43,13 @@ object TestNodes {
 object Service extends SimpleRoutingApp with DataHubCatalog  with App {
   implicit val system = ActorSystem("spray-system")
   implicit val sc = geotrellis.spark.utils.SparkUtils.createLocalSparkContext("local[*]", "Model Service")
-  
+
   import scala.collection.mutable
-  
+
   val colorBreaks = mutable.HashMap.empty[String, ColorBreaks]
 
-  val regsitry = new LayerRegistry
-  val parser = new Parser(regsitry, layerReader)
+  val registry = new LayerRegistry
+  val parser = new Parser(registry, layerReader)
 
   // Testing: Auto load some Op definitions.
   parser.parse(TestNodes.maskCities)
@@ -63,20 +63,20 @@ object Service extends SimpleRoutingApp with DataHubCatalog  with App {
       complete {
         val json = req.entity.asString.parseJson
         val node = parser.parse(json)
-        println(s"Registered: $node")        
+        println(s"Registered: $node")
         StatusCodes.Accepted
       }
     }
   }
 
-  def registerColorBreaksRoute = 
+  def registerColorBreaksRoute =
     pathPrefix(Segment) { breaksName =>
       post {
         requestInstance { req =>
           complete {
-            import java.math.BigInteger            
+            import java.math.BigInteger
 
-            val blob = req.entity.asString            
+            val blob = req.entity.asString
             val breaks = {
               val split = blob.split(";").map(_.trim.split(":"))
               println(split.toList)
@@ -86,7 +86,7 @@ object Service extends SimpleRoutingApp with DataHubCatalog  with App {
             }
 
             colorBreaks.update(breaksName, breaks)
-            println(s"Registered Breaks: $breaksName")        
+            println(s"Registered Breaks: $breaksName")
             StatusCodes.Accepted
           }
         }
@@ -94,16 +94,16 @@ object Service extends SimpleRoutingApp with DataHubCatalog  with App {
     }
 
   def guidRoute = pathPrefix(Segment / IntNumber / IntNumber / IntNumber) { (guid, zoom, x, y) =>
-    parameters('breaks.?) { breaksName => 
+    parameters('breaks.?) { breaksName =>
       respondWithMediaType(MediaTypes.`image/png`) {
         complete{ future {
-          regsitry.getTile(guid, zoom - 1, x, y)            
+          registry.getTile(guid, zoom - 1, x, y)
             .map { tile =>
               {
                 for {
                   name <- breaksName
                   breaks <- colorBreaks.get(name)
-                } yield tile.renderPng(breaks).bytes 
+                } yield tile.renderPng(breaks).bytes
               }.getOrElse(tile.renderPng().bytes )
             }
         } }

@@ -20,7 +20,7 @@ class LayerRegistry {
     layerCache.update(guid, layer)
     layer
   }
-  
+
   def getLayer(guid: GUID): Option[Node] = layerCache.get(guid)
 
   def buffer(key: SpatialKey, buffer: Int) = {
@@ -28,7 +28,7 @@ class LayerRegistry {
     GridBounds(
       col - col % buffer, row - row % buffer,
       col + (buffer - col % buffer), row + (buffer - row % buffer))
-  } 
+  }
 
   val resize = new ResizeTile(256, 512) // we're reading from DataHub, tiles are too big
   val window = new Window(2)            // bucffer operation requests by 2 (storage) tiles each direction  

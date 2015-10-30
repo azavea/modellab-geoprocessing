@@ -21,10 +21,10 @@ class WindowedReader(
   windowSize: Int = 8, 
   storageLevel: StorageLevel = StorageLevel.MEMORY_ONLY) extends Window(windowSize) {
 
-  private val windowCache: mutable.HashMap[LayerId, mutable.HashMap[GridBounds, RDD[(SpatialKey, Tile)]]] = 
+  private val windowCache: mutable.HashMap[LayerId, mutable.HashMap[GridBounds, RasterRDD[SpatialKey]]] = 
     mutable.HashMap.empty
 
-  def getWindow(id: LayerId, key: SpatialKey): RDD[(SpatialKey, Tile)] = {
+  def getWindow(id: LayerId, key: SpatialKey): RasterRDD[SpatialKey] = {
     val layerCache = windowCache.getOrElseUpdate(id, mutable.HashMap.empty)
     val windowBounds = getWindowBounds(key)
 
@@ -40,7 +40,7 @@ class WindowedReader(
   /** 
    * If we stradle window boundry, we need to find which windows we intercept.
    */
-  def getView(id: LayerId, bounds: GridBounds): RDD[(SpatialKey, Tile)] = {
+  def getView(id: LayerId, bounds: GridBounds): RasterRDD[SpatialKey] = {
     val windows = {
       for {
         row <- List(bounds.rowMin, bounds.rowMax)
@@ -48,9 +48,11 @@ class WindowedReader(
       } yield getWindow(id, SpatialKey(col, row))
     }.toSet
     println(s"Request: $id - $bounds intersects: ${windows.size} windows")
-    windows
+    val metaData = windows.head.metaData
+    val tilesRDD = windows
       .map { _.filter { case (key, tile) => bounds.contains(key.col, key.row) } }
       .reduce( _ union _)
+    new RasterRDD(tilesRDD, metaData)
   }
 }
 
