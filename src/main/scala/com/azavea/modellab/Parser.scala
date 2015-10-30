@@ -48,36 +48,37 @@ class Parser(layerRegistry: LayerRegistry, layerReader: FilteringLayerReader[Lay
   implicit class withJsonMethods(json: JsValue) {
     val fields = json.asJsObject.fields
     def get[T: JsonReader](name: String) = fields(name).convertTo[T]
+    def inputs: Seq[Node] = fields("inputs").convertTo[Seq[Node]]
     def param[T: JsonReader](name: String): T =
       fields("parameters")
         .asJsObject
         .fields(name)
         .convertTo[T]
+  }
 
-    def optParam[T: JsonReader](name: String): Option[T] =
-      Try(fields("parameters")
-        .asJsObject
-        .fields(name)
-        .convertTo[T]
-      ).toOption
 
-    def neighborhood: Neighborhood = json.param[String]("neighborhood_shape") match {
-      case "square" => Square(json.param[Int]("neighborhood_size"))
-      case "circle" => Circle(json.param[Int]("neighborhood_size"))
-      case "nesw" => Nesw(json.param[Int]("neighborhood_size"))
-      case "wedge" => {
-        val nDims = json.param[Seq[Int]]("neighborhood_size")
-        require(nDims.size == 3, "Wedges require exactly 3 parameters")
-        Wedge(nDims(0), nDims(1), nDims(2))
-      }
-      case "ring" => {
-        val nDims = json.param[Seq[Int]]("neighborhood_size")
-        require(nDims.size == 3, "Rings require exactly 2 parameters")
-        Annulus(nDims(0), nDims(1))
+  implicit def  neighborhoodParser: JsonFormat[Neighborhood] = new JsonFormat[Neighborhood] {
+    def read(json: JsValue): Neighborhood = {
+      val obj = json.asJsObject
+      def size[T: JsonReader] = obj.fields("size").convertTo[T]
+      obj.fields("shape").convertTo[String] match {
+        case "square" => Square(size[Int])
+        case "circle" => Circle(size[Int])
+        case "nesw" => Nesw(size[Int])
+        case "wedge" => {
+          val nDims = size[Seq[Int]]
+          require(nDims.size == 3, "Wedges require exactly 3 parameters")
+          Wedge(nDims(0), nDims(1), nDims(2))
+        }
+        case "ring" => {
+          val nDims = size[Seq[Int]]
+          require(nDims.size == 3, "Rings require exactly 2 parameters")
+          Annulus(nDims(0), nDims(1))
+        }
       }
     }
-
-    def inputs: Seq[Node] = fields("inputs").convertTo[Seq[Node]]
+    //this is required to make use of DefaultJsonProtocols
+    def write(neighborhood: Neighborhood): JsValue = ???
   }
 
   private def readNode: PartialFunction[String, JsValue => Node] = {
@@ -85,69 +86,63 @@ class Parser(layerRegistry: LayerRegistry, layerReader: FilteringLayerReader[Lay
       LoadLayer(json.param[String]("layer_name"), windowedReader)
 
     case "LocalAdd" => json => {
-      LocalBinaryOp(Add, json.inputs, json.optParam[Int]("constant"))
+      LocalBinaryOp(Add, json.inputs, json.param[Option[Double]]("constant"))
     }
 
     case "LocalSubtract" => json => {
-      LocalBinaryOp(Subtract, json.inputs, json.optParam[Int]("constant"))
+      LocalBinaryOp(Subtract, json.inputs, json.param[Option[Double]]("constant"))
     }
 
     case "LocalMultiply" => json => {
-      LocalBinaryOp(Multiply, json.inputs, json.optParam[Int]("constant"))
+      LocalBinaryOp(Multiply, json.inputs, json.param[Option[Double]]("constant"))
     }
 
     case "LocalDivide" => json => {
-      LocalBinaryOp(Divide, json.inputs, json.optParam[Int]("constant"))
-    }
-
-    case "ValueMask" => json => {
-      ValueMask(json.inputs.head, json.param[Seq[Int]]("masks"))
+      LocalBinaryOp(Divide, json.inputs, json.param[Option[Double]]("constant"))
     }
 
     case "Mapping" => json => {
-      val mapFrom = json.param[Seq[Seq[Int]]]("map_from")
-      val mapTo = json.param[Seq[Int]]("map_to")
-      require(mapFrom.size == mapTo.size, "The number of map_from lists must equal the number of map_to values")
-      MappingOp(json.inputs.head, mapFrom, mapTo)
+      val mappings = json.param[Seq[(Seq[Int], Option[Int])]]("mappings")
+      MapValuesOp(json.inputs.head, mappings)
     }
 
     case "FocalSum" => json => {
-      val n = json.neighborhood
+      val n = json.param[Neighborhood]("neighborhood")
       require(json.inputs.size == 1, "FocalSum expexects one layer input")
 
       FocalOp(Sum.apply, json.inputs.head, n)
     }
 
     case "FocalMax" => json => {
-      val n = json.neighborhood
+      val n = json.param[Neighborhood]("neighborhood")
       require(json.inputs.size == 1, "FocalMax expexects one layer input")
 
       FocalOp(geotrellis.raster.op.focal.Max.apply, json.inputs.head, n)
     }
 
     case "FocalMin" => json => {
-      val n = json.neighborhood
+      val n = json.param[Neighborhood]("neighborhood")
       require(json.inputs.size == 1, "FocalMin expexects one layer input")
 
       FocalOp(geotrellis.raster.op.focal.Min.apply, json.inputs.head, n)
     }
 
     case "FocalMean" => json => {
-      val n = json.neighborhood
+      val n = json.param[Neighborhood]("neighborhood")
       require(json.inputs.size == 1, "FocalMin expexects one layer input")
 
       FocalOp(geotrellis.raster.op.focal.Mean.apply, json.inputs.head, n)
     }
 
     case "FocalAspect" => json => {
-      val n = json.neighborhood
+      val n = json.param[Neighborhood]("neighborhood")
       require(json.inputs.size == 1, "FocalMin expexects one layer input")
 
       AspectOp(Aspect.apply, json.inputs.head, n)
     }
 
     case "FocalSlope" => json => {
-      val n = json.neighborhood
+      val n = json.param[Neighborhood]("neighborhood")
       val z = json.param[Double]("z_factor")
       require(json.inputs.size == 1, "FocalMin expexects one layer input")
 

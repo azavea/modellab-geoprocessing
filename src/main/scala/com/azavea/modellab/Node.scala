@@ -118,59 +118,48 @@ case class LocalUnaryOp(
 case class LocalBinaryOp(
   op: LocalTileBinaryOp,
   input: Seq[Node],
-  const: Option[Int] = None // Constant value
+  const: Option[Double] = None // Constant value
 ) extends Node {
   def calc(zoom: Int, bounds: GridBounds) = {
     val metaData = input.head(zoom, bounds).metaData
     val tileRDD = input
       .map { _(zoom, bounds).tileRdd }
       .reduce { _ union _ }
-      .combineByKey(  // For local ops over tiles
-        (init: Tile) => init,
-        (aggr: Tile, value: Tile) => op(aggr, value),
+      .reduceByKey(
         (aggr: Tile, value: Tile) => op(aggr, value)
-      ) map { case (k, t) =>  // For constant values
-        k -> (const match {
-          case Some(constant) => { op(t, constant) }
-          case _ => t
-        })
+      )
+
+    val outTile =
+      const match {
+        case Some(constant) => {  // Have a constant
+          metaData.cellType.isFloatingPoint match {  // Constant is floating point
+            case true => tileRDD.map { case (key, tile) => key -> op(tile, constant.toDouble) }
+            case false => tileRDD.map { case (key, tile) => key -> op(tile, constant) }
+          }
+        }
+        case _ => tileRDD  // No constant provided
       }
 
-    new RasterRDD(tileRDD, metaData)
+    new RasterRDD(outTile, metaData)
   }
 }
 
-case class MappingOp(
+case class MapValuesOp(
   input: Node,
-  mapFrom: Seq[Seq[Int]],
-  mapTo: Seq[Int]
+  mappings: Seq[(Seq[Int], Option[Int])]
 ) extends Node {
   def calc(zoom: Int, bounds: GridBounds) = {
     val rasterRDD = input(zoom, bounds)
     val metaData = rasterRDD.metaData
-    val mappings =
-      (mapFrom zip mapTo map { case (mappingsFrom, mapTo) =>
-        mappingsFrom map { _ -> mapTo }
-      }).flatten.toMap
+    require(!metaData.cellType.isFloatingPoint, "Only discrete (integer) tiles can map by value")
+    val map = mappings.flatMap { tuple: (Seq[Int], Option[Int]) =>
+        tuple._1 map { _ -> tuple._2 }
+      }.toMap
 
     val tileRDD = rasterRDD map { case (key, tile) =>
-      key -> tile.map(mappings)
+      key -> tile.map(map(_).getOrElse(NODATA))
     }
     new RasterRDD(tileRDD, metaData)
   }
 }
 
-case class ValueMask(
-  input: Node,
-  masks: Seq[Int]
-) extends Node {
-  def calc(zoom: Int, bounds: GridBounds) = {
-    val rasterRDD = input(zoom, bounds)
-    val metaData = rasterRDD.metaData
-    val _masks = masks
-    val tileRDD = rasterRDD.map { case (key, tile) =>
-      key -> tile.map { v => if (_masks.contains(v)) NODATA else v }
-    }
-    new RasterRDD(tileRDD, metaData)
-  }
-}
