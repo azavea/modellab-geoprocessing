@@ -13,6 +13,8 @@ import geotrellis.raster.op.focal._
 import org.apache.spark.storage._
 import scala.collection.mutable
 import org.apache.spark.rdd._
+import java.nio.ByteBuffer
+import org.apache.commons.codec.binary._
 
 object Node {
   val cache = mutable.HashMap.empty[(Node, Int, GridBounds), RasterRDD[SpatialKey]]
@@ -42,6 +44,12 @@ trait Node extends Serializable {
         println(s"PUSHED Node: $name")
         rdd
     }
+  }
+
+  def hash: String = {
+    val buff = ByteBuffer.allocate(8);
+    buff.putInt(hashCode)
+    Base64.encodeBase64(buff.array).mkString
   }
 }
 
