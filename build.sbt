@@ -25,6 +25,7 @@ initialCommands in console :=
   import scalaz._
   import geotrellis.spark.utils.SparkUtils
   import com.azavea.modellab._
+  import spray.json.JsonParser
   val catalog = new DataHubCatalog {
     implicit val sc = geotrellis.spark.utils.SparkUtils.createLocalSparkContext("local[*]", "Model Service")
   }

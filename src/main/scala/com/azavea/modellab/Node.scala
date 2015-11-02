@@ -19,6 +19,10 @@ object Node {
 }
 
 trait Node extends Serializable {
+  def inputs: Seq[Node]
+
+  def id: Int = this.hashCode
+
   def calc(zoom: Int, bounds: GridBounds): RasterRDD[SpatialKey]
 
   def apply(zoom: Int, bounds: GridBounds): RasterRDD[SpatialKey] = {
@@ -45,7 +49,11 @@ trait Node extends Serializable {
   }
 }
 
-case class LoadLayer(layerName: String, layerReader: WindowedReader) extends Node {
+trait TerminalNode extends Node {
+  def inputs = Seq()
+}
+
+case class LoadLayer(layerName: String, layerReader: WindowedReader) extends TerminalNode {
   def calc(zoom: Int, bounds: GridBounds) = {
     layerReader.getView(LayerId(layerName, zoom), bounds)
   }
@@ -57,6 +65,9 @@ case class FocalOp(
   n: Neighborhood
 ) extends Node {
   require(n.extent <= 256, "Maximum Neighborhood extent is 256 cells")
+  val _op = op
+  def inputs = Seq(input)
+
   def buffer(bounds: GridBounds, cells: Int) = GridBounds(
     math.max(0, bounds.colMin - cells),
     math.max(0, bounds.rowMin - cells),
@@ -68,7 +79,7 @@ case class FocalOp(
     val metaData = rasterRDD.metaData
     val extended = buffer(bounds, 1)
     println(s"FOCAL: $bounds -> $extended")
-    val tileRDD = FocalOperation(rasterRDD, n, Some(bounds))(op)
+    val tileRDD = FocalOperation(rasterRDD, n, Some(bounds))(_op)
       .filter { case (key, _) => bounds.contains(key.col, key.row) } // filter buffer tiles, they contain no information
     new RasterRDD(tileRDD, metaData)
   }
@@ -79,11 +90,14 @@ case class AspectOp(
   input: Node,
   n: Neighborhood
 ) extends Node {
+  def inputs = Seq(input)
+  val _op = op
+
   def calc(zoom: Int, bounds: GridBounds) = {
     val rasterRDD = input(zoom, bounds)
     val metaData = rasterRDD.metaData
     val cs = metaData.layout.rasterExtent.cellSize
-    val tileRDD = rasterRDD map { case (key, tile) => key -> op(tile, n, None, cs) }
+    val tileRDD = rasterRDD map { case (key, tile) => key -> _op(tile, n, None, cs) }
     new RasterRDD(tileRDD, metaData)
   }
 }
@@ -94,11 +108,14 @@ case class SlopeOp(
   n: Neighborhood,
   z: Double
 ) extends Node {
+  def inputs = Seq(input)
+  val _op = op
+
   def calc(zoom: Int, bounds: GridBounds) = {
     val rasterRDD = input(zoom, bounds)
     val metaData = rasterRDD.metaData
     val cs = metaData.layout.rasterExtent.cellSize
-    val tileRDD = rasterRDD map { case (key, tile) => key -> op(tile, n, None, cs, z) }
+    val tileRDD = rasterRDD map { case (key, tile) => key -> _op(tile, n, None, cs, z) }
     new RasterRDD(tileRDD, metaData)
   }
 }
@@ -107,10 +124,13 @@ case class LocalUnaryOp(
   op: Function1[Tile, Tile],
   input: Node
 ) extends Node {
+  def inputs = Seq(input)
+  val _op = op
+
   def calc(zoom: Int, bounds: GridBounds) = {
     val rasterRDD = input(zoom, bounds)
     val metaData = rasterRDD.metaData
-    val tileRDD = rasterRDD map { case (key, tile) => key -> op(tile) }
+    val tileRDD = rasterRDD map { case (key, tile) => key -> _op(tile) }
     new RasterRDD(tileRDD, metaData)
   }
 }
@@ -120,6 +140,9 @@ case class LocalBinaryOp(
   input: Seq[Node],
   const: Option[Double] = None // Constant value
 ) extends Node {
+  def inputs = input
+  val _op = op
+
   def calc(zoom: Int, bounds: GridBounds) = {
     val metaData = input.head(zoom, bounds).metaData
     val tileRDD = input
@@ -133,8 +156,8 @@ case class LocalBinaryOp(
       const match {
         case Some(constant) => {  // Have a constant
           metaData.cellType.isFloatingPoint match {  // Constant is floating point
-            case true => tileRDD.map { case (key, tile) => key -> op(tile, constant.toDouble) }
-            case false => tileRDD.map { case (key, tile) => key -> op(tile, constant) }
+            case true => tileRDD.map { case (key, tile) => key -> _op(tile, constant.toDouble) }
+            case false => tileRDD.map { case (key, tile) => key -> _op(tile, constant) }
           }
         }
         case _ => tileRDD  // No constant provided
@@ -148,6 +171,8 @@ case class MapValuesOp(
   input: Node,
   mappings: Seq[(Seq[Int], Option[Int])]
 ) extends Node {
+  def inputs = Seq(input)
+
   def calc(zoom: Int, bounds: GridBounds) = {
     val rasterRDD = input(zoom, bounds)
     val metaData = rasterRDD.metaData

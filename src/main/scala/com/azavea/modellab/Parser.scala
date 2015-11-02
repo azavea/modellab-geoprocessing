@@ -54,6 +54,14 @@ class Parser(layerRegistry: LayerRegistry, layerReader: FilteringLayerReader[Lay
         .asJsObject
         .fields(name)
         .convertTo[T]
+
+    def optParam[T: JsonReader](name: String): Option[T] =
+      Try(fields("parameters")
+        .asJsObject
+        .fields(name)
+        .convertTo[T]
+      ).toOption
+
   }
 
 
@@ -86,7 +94,7 @@ class Parser(layerRegistry: LayerRegistry, layerReader: FilteringLayerReader[Lay
       LoadLayer(json.param[String]("layer_name"), windowedReader)
 
     case "LocalAdd" => json => {
-      LocalBinaryOp(Add, json.inputs, json.param[Option[Double]]("constant"))
+      LocalBinaryOp(Add, json.inputs, json.optParam[Double]("constant"))
     }
 
     case "LocalSubtract" => json => {
