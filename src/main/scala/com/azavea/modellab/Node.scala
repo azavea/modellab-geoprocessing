@@ -164,7 +164,10 @@ case class MapValuesOp(
       }.toMap
 
     val tileRDD = rasterRDD map { case (key, tile) =>
-      key -> tile.map(map(_).getOrElse(NODATA))
+      key -> tile.map { cellValue => 
+        // if cellValue is not mentioned in map, map to itself, if it maps to None, map to NODATA
+        map.getOrElse(cellValue, Some(cellValue)).getOrElse(NODATA)
+      }
     }
     new RasterRDD(tileRDD, metaData)
   }
