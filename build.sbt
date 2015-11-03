@@ -10,6 +10,7 @@ libraryDependencies ++= Seq(
   Library.shapeless,
   Library.scalaz,
   Library.metrics, Library.metricsLibrato,
+  Library.config,
   "io.spray"        %% "spray-json"    % "1.3.1",
   "com.azavea.geotrellis" %% "geotrellis-spark" % Version.geotrellis)
 
