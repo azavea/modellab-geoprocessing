@@ -1,5 +1,5 @@
  {
-  "function_name": "ValueMask",
+  "function_name": "Mapping",
   "guid": "80ef666c-forest",
   "inputs": [
     {
@@ -15,6 +15,6 @@
   "last_modified_date": "2015-10-14T16:12:24+00:00",
   "last_run_date": "2015-10-15T16:12:24+00:00",
   "parameters": {
-    "masks": [41, 42, 43]
+    "mappings": [[[41, 42, 43], null]]
   }
 }
