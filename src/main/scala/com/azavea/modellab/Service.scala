@@ -28,6 +28,7 @@ import spray.httpx.SprayJsonSupport._
 import spray.httpx.unmarshalling._
 import spray.json._
 import spray.routing._
+import spray.http.HttpHeaders.RawHeader
 
 object TestNodes {
   import java.io.IOException;
@@ -60,11 +61,13 @@ object Service extends SimpleRoutingApp with DataHubCatalog  with App {
 
   def registerLayerRoute = post {
     requestInstance { req =>
-      complete {
-        val json = req.entity.asString.parseJson
-        val node = parser.parse(json)
-        println(s"Registered: $node")        
-        StatusCodes.Accepted
+      respondWithHeader(RawHeader("Access-Control-Allow-Origin", "*")) {
+        complete {
+          val json = req.entity.asString.parseJson
+          val node = parser.parse(json)
+          println(s"Registered: $node")
+          StatusCodes.Accepted
+        }
       }
     }
   }
