@@ -39,8 +39,10 @@ object TestNodes {
   val localAdd = new String(Files.readAllBytes(Paths.get("sample/localAdd.json"))).parseJson
 }
 
+object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented with App {
+  private[this] lazy val requestTimer = metrics.timer("tileRequest")
 
-object Service extends SimpleRoutingApp with DataHubCatalog  with App {
+
   implicit val system = ActorSystem("spray-system")
   implicit val sc = geotrellis.spark.utils.SparkUtils.createLocalSparkContext("local[*]", "Model Service")
 
@@ -97,15 +99,17 @@ object Service extends SimpleRoutingApp with DataHubCatalog  with App {
     parameters('breaks.?) { breaksName =>
       respondWithMediaType(MediaTypes.`image/png`) {
         complete{ future {
-          registry.getTile(guid, zoom - 1, x, y)
-            .map { tile =>
-              {
-                for {
-                  name <- breaksName
-                  breaks <- colorBreaks.get(name)
-                } yield tile.renderPng(breaks).bytes
-              }.getOrElse(tile.renderPng().bytes )
-            }
+          requestTimer.time {
+            registry.getTile(guid, zoom - 1, x, y)
+              .map { tile =>
+                {
+                  for {
+                    name <- breaksName
+                    breaks <- colorBreaks.get(name)
+                  } yield tile.renderPng(breaks).bytes
+                }.getOrElse(tile.renderPng().bytes )
+              }
+          }
         } }
       }
     }

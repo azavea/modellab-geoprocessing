@@ -15,30 +15,31 @@ import scala.collection.mutable
 import org.apache.spark.rdd._
 import java.nio.ByteBuffer
 import org.apache.commons.codec.binary._
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import geotrellis.spark.utils.cache._
+import scala.collection.concurrent.TrieMap
 
 object Node {
   type K = (Node, Int, GridBounds)
   type V = RasterRDD[SpatialKey]
-  val cache = new HashBackedCache[K, V] with LoggingCache[K, V] with AtomicCache[K, V] 
+  val cache = new TrieMap[K,V]
 }
 
-trait Node extends Serializable with Instrumented {
-  private[this] val logger = LoggerFactory.getLogger(this.getClass);
-  private[this] val reading = metrics.timer("calc", this.getClass.getName)
+trait Node extends Serializable with Instrumented {  
+  private[this] val cacheHit = metrics.counter("cache.hit")
+  private[this] val cacheMiss = metrics.counter("cache.miss")
 
   def calc(zoom: Int, bounds: GridBounds): RasterRDD[SpatialKey]
 
   def apply(zoom: Int, bounds: GridBounds): RasterRDD[SpatialKey] = {
     // This will backstop calculation of RDDs nodes, hopefully allowing IO nodes to be re-used
     // Critical note: the Node tree will already exist fully.
-    val name = s"${this.getClass.getName}::$zoom::$bounds"
     val key = (this, zoom, bounds)
+    val name = s"${this.getClass.getSimpleName}($zoom, $bounds)"
 
     // NOTE: We used to cache here to store every layer and their intermidiate results
-    Node.cache.getOrInsert(key, calc(zoom, bounds).setName(name).cache)
+    Node.cache.synchronized {
+      if ( Node.cache.contains(key) ) cacheHit += 1 else cacheMiss += 1      
+      Node.cache.getOrElseUpdate(key, calc(zoom, bounds).setName(name).cache)
+    }
   }
 
   def hash: String = {
