@@ -15,12 +15,20 @@ import scala.collection.mutable
 import org.apache.spark.rdd._
 import java.nio.ByteBuffer
 import org.apache.commons.codec.binary._
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import geotrellis.spark.utils.cache._
 
 object Node {
-  val cache = mutable.HashMap.empty[(Node, Int, GridBounds), RasterRDD[SpatialKey]]
+  type K = (Node, Int, GridBounds)
+  type V = RasterRDD[SpatialKey]
+  val cache = new HashBackedCache[K, V] with LoggingCache[K, V] with AtomicCache[K, V] 
 }
 
-trait Node extends Serializable {
+trait Node extends Serializable with Instrumented {
+  private[this] val logger = LoggerFactory.getLogger(this.getClass);
+  private[this] val reading = metrics.timer("calc", this.getClass.getName)
+
   def calc(zoom: Int, bounds: GridBounds): RasterRDD[SpatialKey]
 
   def apply(zoom: Int, bounds: GridBounds): RasterRDD[SpatialKey] = {
@@ -30,20 +38,7 @@ trait Node extends Serializable {
     val key = (this, zoom, bounds)
 
     // NOTE: We used to cache here to store every layer and their intermidiate results
-    Node.cache.get(key) match {
-      case Some(rdd) =>
-        println(s"Pulled Node: $name")
-        rdd
-
-      case None =>
-        val rdd =
-          calc(zoom, bounds)
-            .setName(s"${this.getClass.getName}::$zoom::$bounds")
-            .cache
-        Node.cache.update(key, rdd)
-        println(s"PUSHED Node: $name")
-        rdd
-    }
+    Node.cache.getOrInsert(key, calc(zoom, bounds).setName(name).cache)
   }
 
   def hash: String = {

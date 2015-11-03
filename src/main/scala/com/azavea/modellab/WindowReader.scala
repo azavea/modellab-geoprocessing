@@ -8,7 +8,9 @@ import geotrellis.raster._
 import geotrellis.spark.io._
 import org.apache.spark.rdd._
 import org.apache.spark.storage._
-import scala.collection.mutable
+
+import scala.collection._
+import geotrellis.spark.utils.cache._
 
 /**
  * The purpose of this class is to buffer IO, which benefits from larger windows.
@@ -18,18 +20,21 @@ import scala.collection.mutable
  */
 class WindowedReader(
   layerReader: FilteringLayerReader[LayerId, SpatialKey, RasterRDD[SpatialKey]], 
-  windowSize: Int = 8, 
-  storageLevel: StorageLevel = StorageLevel.MEMORY_ONLY) extends Window(windowSize) {
+  windowSize: Int = 6, 
+  storageLevel: StorageLevel = StorageLevel.MEMORY_AND_DISK_SER) extends Window(windowSize) {
 
-  private val windowCache: mutable.HashMap[LayerId, mutable.HashMap[GridBounds, RasterRDD[SpatialKey]]] = 
-    mutable.HashMap.empty
+  type LayerKey = LayerId
+  type WindowKey = GridBounds
+  type Window = RasterRDD[SpatialKey]
+  private val windowCache = new HashBackedCache[LayerKey, Cache[WindowKey, Window]] 
+    with AtomicCache[LayerKey, Cache[WindowKey, Window]]
 
   def getWindow(id: LayerId, key: SpatialKey): RasterRDD[SpatialKey] = {
-    val layerCache = windowCache.getOrElseUpdate(id, mutable.HashMap.empty)
+    val layerCache = windowCache.getOrInsert(id, new HashBackedCache[WindowKey, Window] with AtomicCache[WindowKey, Window])
     val windowBounds = getWindowBounds(key)
 
     layerCache.synchronized { 
-      layerCache.getOrElseUpdate(windowBounds, 
+      layerCache.getOrInsert(windowBounds, 
         layerReader.query(id).where(Intersects(windowBounds))
           .toRDD
           .setName(s"Window::$id::$windowBounds")
