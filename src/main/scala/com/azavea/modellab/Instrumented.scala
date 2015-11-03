@@ -13,12 +13,12 @@ object Instrumented {
 
   {
     val config = ConfigFactory.load()
-    config.hasPath("librato") {
+    if (config.hasPath("librato")) {
       LibratoReporter.enable(
         LibratoReporter.builder(metricRegistry, 
           config.getString("librato.username"),
           config.getString("librato.token"),
-          config.getString("librato.source"))
+          config.getString("librato.source")),
         5,
         TimeUnit.SECONDS);
     }
