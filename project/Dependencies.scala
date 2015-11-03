@@ -25,4 +25,5 @@ object Library {
   val scalaTest       = "org.scalatest"          %% "scalatest"                     % Version.scalaTest
   val metrics         = "nl.grons"               %% "metrics-scala"                 % "3.5.2_a2.3"
   val metricsLibrato  = "com.librato.metrics"    % "metrics-librato"                % "4.0.1.12"
+  val config          = "com.typesafe"           % "config"                         % "1.2.1"
 }

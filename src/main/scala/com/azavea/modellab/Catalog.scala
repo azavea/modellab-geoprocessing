@@ -33,7 +33,7 @@ trait Catalog {
 trait DataHubCatalog extends Catalog with Instrumented {
   implicit def sc: SparkContext
 
-  private[this] val reading = metrics.timer("catalog.datahub.read")
+  private[this] val reading = metrics.timer("read")
 
   private val bucket = "azavea-datahub"
   private val key = "catalog"
