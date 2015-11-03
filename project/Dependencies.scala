@@ -23,4 +23,6 @@ object Library {
   val logbackClassic  = "ch.qos.logback"         %  "logback-classic"               % Version.logback
   val sparkCore       = "org.apache.spark"       %% "spark-core"                    % Version.spark
   val scalaTest       = "org.scalatest"          %% "scalatest"                     % Version.scalaTest
+  val metrics         = "nl.grons"               %% "metrics-scala"                 % "3.5.2_a2.3"
+  val metricsLibrato  = "com.librato.metrics"    % "metrics-librato"                % "4.0.1.12"
 }
