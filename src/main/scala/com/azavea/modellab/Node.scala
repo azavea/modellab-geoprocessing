@@ -3,7 +3,9 @@ package com.azavea.modellab
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 import shapeless._
+import shapeless.record._
 import shapeless.ops.hlist._
+import shapeless.syntax.singleton._
 import geotrellis.spark._
 import geotrellis.spark.io._
 import geotrellis.spark.op.focal._
@@ -14,12 +16,26 @@ import org.apache.spark.storage._
 import scala.collection.mutable
 import org.apache.spark.rdd._
 
+
+// A case class for hanging onto extra parameters
+case class NodeParameters(
+  neighborhood: Option[Neighborhood] = None,
+  layerName: Option[String] = None,
+  constant: Option[Double] = None,
+  zFactor: Option[Double] = None,
+  mappings: Option[Seq[(Seq[Int], Option[Int])]] = None
+)
+
 object Node {
   val cache = mutable.HashMap.empty[(Node, Int, GridBounds), RasterRDD[SpatialKey]]
 }
 
 trait Node extends Serializable {
   def inputs: Seq[Node]
+
+  def parameters: NodeParameters
+
+  def opName: String
 
   def id: Int = this.hashCode
 
@@ -53,7 +69,11 @@ trait TerminalNode extends Node {
   def inputs = Seq()
 }
 
-case class LoadLayer(layerName: String, layerReader: WindowedReader) extends TerminalNode {
+case class LoadLayerOp(layerName: String, layerReader: WindowedReader) extends TerminalNode {
+  override def hashCode = layerName.hashCode
+  val opName = this.getClass.getName
+  def parameters = NodeParameters(layerName=Some(layerName))
+
   def calc(zoom: Int, bounds: GridBounds) = {
     layerReader.getView(LayerId(layerName, zoom), bounds)
   }
@@ -61,11 +81,22 @@ case class LoadLayer(layerName: String, layerReader: WindowedReader) extends Ter
 
 case class FocalOp(
   op: (Tile, Neighborhood, Option[GridBounds]) => Tile,
+  opName: String,
   input: Node,
   n: Neighborhood
 ) extends Node {
   require(n.extent <= 256, "Maximum Neighborhood extent is 256 cells")
+  def parameters = NodeParameters(neighborhood=Some(n))
   val _op = op
+
+  override def hashCode: Int = {
+    41 * (
+      41 * (
+        41 + opName.hashCode
+      ) + input.hashCode
+    ) + n.hashCode
+  }
+
   def inputs = Seq(input)
 
   def buffer(bounds: GridBounds, cells: Int) = GridBounds(
@@ -87,11 +118,21 @@ case class FocalOp(
 
 case class AspectOp(
   op: (Tile, Neighborhood, Option[GridBounds], CellSize) => Tile,
+  opName: String,
   input: Node,
   n: Neighborhood
 ) extends Node {
   def inputs = Seq(input)
+  def parameters = NodeParameters(neighborhood=Some(n))
   val _op = op
+
+  override def hashCode: Int = {
+    41 * (
+      41 * (
+        41 + opName.hashCode
+      ) + input.hashCode
+    ) + n.hashCode
+  }
 
   def calc(zoom: Int, bounds: GridBounds) = {
     val rasterRDD = input(zoom, bounds)
@@ -104,12 +145,25 @@ case class AspectOp(
 
 case class SlopeOp(
   op: (Tile, Neighborhood, Option[GridBounds], CellSize, Double) => Tile,
+  opName: String,
   input: Node,
   n: Neighborhood,
   z: Double
 ) extends Node {
   def inputs = Seq(input)
+  def parameters = NodeParameters(neighborhood=Some(n), zFactor=Some(z))
   val _op = op
+
+  override def hashCode: Int = {
+    41 * (
+      41 * (
+        41 * (
+          41 + opName.hashCode
+        ) + input.hashCode
+      ) + n.hashCode
+    ) + z.hashCode
+  }
+
 
   def calc(zoom: Int, bounds: GridBounds) = {
     val rasterRDD = input(zoom, bounds)
@@ -122,10 +176,19 @@ case class SlopeOp(
 
 case class LocalUnaryOp(
   op: Function1[Tile, Tile],
+  opName: String,
   input: Node
 ) extends Node {
   def inputs = Seq(input)
+  def parameters = NodeParameters()
   val _op = op
+
+  override def hashCode: Int = {
+    41 * (
+      41 + opName.hashCode
+    ) + input.hashCode
+  }
+
 
   def calc(zoom: Int, bounds: GridBounds) = {
     val rasterRDD = input(zoom, bounds)
@@ -137,11 +200,22 @@ case class LocalUnaryOp(
 
 case class LocalBinaryOp(
   op: LocalTileBinaryOp,
+  opName: String,
   input: Seq[Node],
-  const: Option[Double] = None // Constant value
+  constant: Option[Double] = None // Constant value,
 ) extends Node {
   def inputs = input
+  def parameters = NodeParameters(constant=constant)
   val _op = op
+
+  override def hashCode: Int = {
+    41 * (
+      41 * (
+        41 + opName.hashCode
+      ) + constant.hashCode
+    ) + input.hashCode
+  }
+
 
   def calc(zoom: Int, bounds: GridBounds) = {
     val metaData = input.head(zoom, bounds).metaData
@@ -153,11 +227,11 @@ case class LocalBinaryOp(
       )
 
     val outTile =
-      const match {
-        case Some(constant) => {  // Have a constant
+      constant match {
+        case Some(const) => {  // Have a constant
           metaData.cellType.isFloatingPoint match {  // Constant is floating point
-            case true => tileRDD.map { case (key, tile) => key -> _op(tile, constant.toDouble) }
-            case false => tileRDD.map { case (key, tile) => key -> _op(tile, constant) }
+            case true => tileRDD.map { case (key, tile) => key -> _op(tile, const.toDouble) }
+            case false => tileRDD.map { case (key, tile) => key -> _op(tile, const) }
           }
         }
         case _ => tileRDD  // No constant provided
@@ -172,6 +246,8 @@ case class MapValuesOp(
   mappings: Seq[(Seq[Int], Option[Int])]
 ) extends Node {
   def inputs = Seq(input)
+  def parameters = NodeParameters(mappings=Some(mappings))
+  val opName = this.getClass.getName
 
   def calc(zoom: Int, bounds: GridBounds) = {
     val rasterRDD = input(zoom, bounds)
