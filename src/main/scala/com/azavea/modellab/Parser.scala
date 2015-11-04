@@ -41,42 +41,7 @@ class Parser(layerRegistry: LayerRegistry, layerReader: FilteringLayerReader[Lay
     }
 
     //this is required to make use of DefaultJsonProtocols
-    def write(node: Node): JsValue = {
-      val function_name = JsString(node.opName match {
-        case "geotrellis.raster.op.local.Add$" => "LocalAdd"
-        case "geotrellis.raster.op.local.Subtract$" => "LocalSubtract"
-        case "geotrellis.raster.op.local.Multiply$" => "LocalMultiply"
-        case "geotrellis.raster.op.local.Divide$" => "LocalDivide"
-
-        case "geotrellis.raster.op.focal.Sum$" => "FocalSum"
-        case "geotrellis.raster.op.focal.Max$" => "FocalMax"
-        case "geotrellis.raster.op.focal.Min$" => "FocalMin"
-        case "geotrellis.raster.op.focal.Mean$" => "FocalMean"
-
-        case "geotrellis.raster.op.elevation.Aspect$" => "FocalAspect"
-        case "geotrellis.raster.op.elevation.Slope$" => "FocalSlope"
-
-        case "com.azavea.modellab.LoadLayerOp" => "LoadLayer"
-        case "com.azavea.modellab.MapValuesOp" => "Mapping"
-      })
-
-      val parameters: JsValue = node.parameters.toJson
-
-
-      parameters match {
-        case JsNull => JsObject(
-          "function_name" -> function_name,
-          "guid" -> JsNumber(node.id),
-          "inputs" -> node.inputs.toJson
-        )
-        case _ =>  JsObject(
-          "function_name" -> function_name,
-          "guid" -> JsNumber(node.id),
-          "inputs" -> node.inputs.toJson,
-          "parameters" -> node.parameters.toJson
-        )
-      }
-    }
+    def write(node: Node): JsValue = ??? //JSCache.get(node.id)
   }
 
   implicit def nodeParamsReader: JsonFormat[NodeParameters] = new JsonFormat[NodeParameters] {

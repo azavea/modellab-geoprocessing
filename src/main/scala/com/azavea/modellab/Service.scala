@@ -50,6 +50,7 @@ object Service extends SimpleRoutingApp with DataHubCatalog  with App {
 
   val registry = new LayerRegistry
   val parser = new Parser(registry, layerReader)
+  val astManager = ASTManager(parser)
 
   // Testing: Auto load some Op definitions.
   parser.parse(TestNodes.maskCities)

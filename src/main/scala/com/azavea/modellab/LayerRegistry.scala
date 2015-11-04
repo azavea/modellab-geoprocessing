@@ -9,11 +9,12 @@ import geotrellis.spark.io._
 import org.apache.spark.rdd._
 
 import scala.collection.mutable
+import scala.collection.concurrent
 
 class LayerRegistry {
   type GUID = String
 
-  private val layerCache = mutable.HashMap.empty[GUID, Node]
+  private val layerCache = concurrent.TrieMap.empty[GUID, Node]
 
   def registerLayer(guid: GUID, layer: Node): Node = {
     println(s"Registred: $guid")
@@ -36,7 +37,7 @@ class LayerRegistry {
   def getTile(guid: GUID, zoom: Int, col: Int, row: Int): Option[Tile] = {
     val requestKey = SpatialKey(col, row)
     val storedKey = resize.getStoredKey(requestKey)
-    val bounds = window.getWindowBounds(storedKey)    
+    val bounds = window.getWindowBounds(storedKey)
     getLayer(guid).map { window =>
       val tiles = window(zoom, bounds).lookup(storedKey)
       resize.getTile(requestKey, tiles.head)

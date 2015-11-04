@@ -65,12 +65,9 @@ trait Node extends Serializable {
   }
 }
 
-trait TerminalNode extends Node {
-  def inputs = Seq()
-}
-
-case class LoadLayerOp(layerName: String, layerReader: WindowedReader) extends TerminalNode {
+case class LoadLayerOp(layerName: String, layerReader: WindowedReader) extends Node {
   override def hashCode = layerName.hashCode
+  def inputs = Seq()
   val opName = this.getClass.getName
   def parameters = NodeParameters(layerName=Some(layerName))
 
