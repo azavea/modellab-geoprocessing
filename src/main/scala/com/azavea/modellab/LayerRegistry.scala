@@ -10,10 +10,11 @@ import org.apache.spark.rdd._
 import scala.collection.concurrent.TrieMap
 
 class LayerRegistry(layerReader: FilteringLayerReader[LayerId, SpatialKey, RasterRDD[SpatialKey]]) extends Instrumented {
-  type GUID = String
   private val layerCache = new TrieMap[String, Node]
 
-  val formats = new NodeFormats(new WindowedReader(layerReader, 8))
+  val formats = new NodeFormats(new WindowedReader(layerReader, 8)) // base layer is read and cached in 8x8 native tiles
+  val resize = new ResizeTile(256, 512) // we're reading from DataHub, tiles need to be split to be rendred
+  val window = new Window(2)            // buffer operation requests by 2 (storage) tiles each direction  
 
   def register(json: JsValue): JsObject = {
     import formats._
@@ -35,7 +36,13 @@ class LayerRegistry(layerReader: FilteringLayerReader[LayerId, SpatialKey, Raste
       registerNodeTree(input)
   }
 
-  def getLayer(guid: GUID): Option[Node] = layerCache.get(guid)
+  def getLayerJson(hash: String): Option[JsObject] = {
+    import formats._
+    layerCache.get(hash).map(_.toJson.asJsObject)
+  }
+  
+  def getLayer(hash: String): Option[Node] = 
+    layerCache.get(hash)
 
   def buffer(key: SpatialKey, buffer: Int) = {
     val SpatialKey(col, row) = key
@@ -44,14 +51,12 @@ class LayerRegistry(layerReader: FilteringLayerReader[LayerId, SpatialKey, Raste
       col + (buffer - col % buffer), row + (buffer - row % buffer))
   }
 
-  val resize = new ResizeTile(256, 512) // we're reading from DataHub, tiles are too big
-  val window = new Window(2)            // bucffer operation requests by 2 (storage) tiles each direction  
 
-  def getTile(guid: GUID, zoom: Int, col: Int, row: Int): Option[Tile] = {
+  def getTile(hash: String, zoom: Int, col: Int, row: Int): Option[Tile] = {
     val requestKey = SpatialKey(col, row)
     val storedKey = resize.getStoredKey(requestKey)
     val bounds = window.getWindowBounds(storedKey)    
-    getLayer(guid).map { window =>
+    getLayer(hash).map { window =>
       val tiles = window(zoom, bounds).lookup(storedKey)
       resize.getTile(requestKey, tiles.head)
     }

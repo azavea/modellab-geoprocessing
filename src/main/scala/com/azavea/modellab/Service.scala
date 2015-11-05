@@ -43,15 +43,24 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
 
   val pingPong = path("ping")(complete("pong"))
 
-  def registerLayerRoute = post {
-    requestInstance { req =>
-      complete {
-        import DefaultJsonProtocol._
-        val json = req.entity.asString.parseJson      
-        registry.register(json)
+  def registerLayerRoute = 
+    post {
+      requestInstance { req =>
+        complete {
+          import DefaultJsonProtocol._
+          val json = req.entity.asString.parseJson      
+          registry.register(json)
+        }
+      } 
+    } ~ 
+    get {
+      pathPrefix(Segment) { layerHash =>
+        complete{
+          import DefaultJsonProtocol._
+          registry.getLayerJson(layerHash) 
+        }
       }
     }
-  }
 
   def registerColorBreaksRoute =
     pathPrefix(Segment) { breaksName =>
@@ -77,6 +86,7 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
       }
     }
 
+
   def guidRoute = pathPrefix(Segment / IntNumber / IntNumber / IntNumber) { (guid, zoom, x, y) =>
     parameters('breaks.?) { breaksName =>
       respondWithMediaType(MediaTypes.`image/png`) {
@@ -98,6 +108,6 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
   }
 
   startServer(interface = "0.0.0.0", port = 8888) {
-    pingPong ~ guidRoute ~ path("register"){registerLayerRoute} ~ pathPrefix("breaks"){registerColorBreaksRoute}
+    pingPong ~ guidRoute ~ pathPrefix("layers"){registerLayerRoute} ~ pathPrefix("breaks"){registerColorBreaksRoute}
   }
 }
