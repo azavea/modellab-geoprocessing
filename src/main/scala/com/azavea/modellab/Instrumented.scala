@@ -2,7 +2,6 @@ package com.azavea.modellab
 
 import com.librato.metrics._
 import java.util.concurrent._
-import geotrellis.spark.utils.cache._
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import com.typesafe.config._

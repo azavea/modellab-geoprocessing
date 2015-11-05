@@ -2,22 +2,8 @@ package com.azavea.modellab
 
 import akka.actor.ActorSystem
 
-import geotrellis.proj4._
 import geotrellis.raster._
-import geotrellis.raster.histogram._
-import geotrellis.raster.io.json._
 import geotrellis.raster.render._
-import geotrellis.raster.resample._
-import geotrellis.spark._
-import geotrellis.spark.io._
-import geotrellis.spark.io.avro.codecs._
-import geotrellis.spark.io.json._
-import geotrellis.spark.io.s3._
-import geotrellis.spark.tiling._
-import geotrellis.spark.utils.SparkUtils
-import geotrellis.vector._
-import geotrellis.vector.reproject._
-
 import scala.collection.mutable
 import scala.concurrent._
 import scala.concurrent.ExecutionContext.Implicits.global

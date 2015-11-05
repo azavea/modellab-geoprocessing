@@ -1,18 +1,10 @@
 package com.azavea.modellab
 
 import geotrellis.spark._
-import spray.json._
-import DefaultJsonProtocol._
-import geotrellis.raster.io.geotiff._
 import geotrellis.raster._
 import geotrellis.spark.io._
-import org.apache.spark.rdd._
 import org.apache.spark.storage._
-
-import scala.collection._
-import geotrellis.spark.utils.cache._
 import scala.collection.concurrent.TrieMap
-
 
 /**
  * The purpose of this class is to buffer IO, which benefits from larger windows.

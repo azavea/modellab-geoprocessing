@@ -12,6 +12,8 @@ initialCommands in console :=
   import geotrellis.spark._
   import geotrellis.spark.utils._
   import geotrellis.spark.tiling._
+  import com.azavea.modellab._
+  import com.azavea.modellab.op._
   import shapeless._
   import syntax.singleton._ ; import record._
   import spray.json._

@@ -1,19 +1,17 @@
 package com.azavea.modellab
 
+import com.azavea.modellab.op._
 import geotrellis.spark._
 import spray.json._
-import DefaultJsonProtocol._
-import geotrellis.raster.io.geotiff._
 import geotrellis.raster._
 import geotrellis.spark.io._
-import org.apache.spark.rdd._
 import scala.collection.concurrent.TrieMap
 import scala.concurrent._
 import scala.concurrent.ExecutionContext.Implicits.global
 
 
 class LayerRegistry(layerReader: FilteringLayerReader[LayerId, SpatialKey, RasterRDD[SpatialKey]]) extends Instrumented {
-  private val layerCache = new TrieMap[String, Node]
+  private val layerCache = new TrieMap[String, Op]
 
   val formats = new NodeFormats(new WindowedReader(layerReader, 6), getLayer) // base layer is read and cached in 8x8 native tiles
   val resize = new ResizeTile(256, 512) // we're reading from DataHub, tiles need to be split to be rendred
@@ -21,12 +19,12 @@ class LayerRegistry(layerReader: FilteringLayerReader[LayerId, SpatialKey, Raste
 
   def register(json: JsValue): JsObject = {
     import formats._
-    val node = json.convertTo[Node]
+    val node = json.convertTo[Op]
     registerNodeTree(node)
     node.toJson.asJsObject
   }
 
-  def registerNodeTree(node: Node): Unit = {
+  def registerNodeTree(node: Op): Unit = {
     val hash = node.hashString
 
     layerCache.putIfAbsent(hash, 
@@ -44,7 +42,7 @@ class LayerRegistry(layerReader: FilteringLayerReader[LayerId, SpatialKey, Raste
     layerCache.get(hash).map(_.toJson.asJsObject)
   }
   
-  def getLayer(hash: String): Option[Node] = 
+  def getLayer(hash: String): Option[Op] =
     layerCache.get(hash)
 
   def listLayers: Seq[String] =

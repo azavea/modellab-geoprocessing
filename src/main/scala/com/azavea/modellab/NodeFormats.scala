@@ -1,29 +1,20 @@
 package com.azavea.modellab
 
+import com.azavea.modellab.op._
 import spray.json._
 import spray.json.DefaultJsonProtocol._
-import shapeless._
-import shapeless.ops.hlist._
-import geotrellis.spark._
-import geotrellis.spark.io._
-import geotrellis.raster._
 import geotrellis.raster.op.local._
 import geotrellis.raster.op.focal
 import geotrellis.raster.op.focal._
-import geotrellis.raster.op.elevation._
-import org.apache.spark.storage._
-import scala.collection.mutable
-import scala.util.Try
-
 
 /**
  * Transforms JSON Tree to Node object tree
- * @param WindowedReader  used by LoadLayer, which is the leaf in Node object tree
+ * @param windowedReader  used by LoadLayer, which is the leaf in Node object tree
  */
-class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[Node]) {
+class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[Op]) {
 
   // Node trait doesn't have enough information to implement this, so this is mostly a type switch
-  implicit object NodeFormat extends JsonFormat[Node] {
+  implicit object NodeFormat extends JsonFormat[Op] {
     def read(json: JsValue) = {
       json match {
         case JsString(hash) =>
@@ -45,11 +36,11 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
               LoadLayerFormat.read(json)
           }
         case _ =>
-          throw new DeserializationException(s"Node definition may either be an object or hash string"))
+          throw new DeserializationException(s"Node definition may either be an object or hash string")
       }
     }
 
-    def write(node: Node): JsValue = node match {
+    def write(node: Op): JsValue = node match {
       case op: LoadLayer =>
         LoadLayerFormat.write(op)
       case op: LocalBinaryOp =>
@@ -66,7 +57,7 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
   }
 
   // Helper function to convert nodes to JsObject
-  private def writeNode(node: Node, name: String, paramFields: (String, JsValue)*) = JsObject(
+  private def writeNode(node: Op, name: String, paramFields: (String, JsValue)*) = JsObject(
     "function_name" -> JsString(name),
     "inputs" -> node.inputs.toJson,
     "hash" -> JsString(node.hashString),
@@ -76,7 +67,7 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
   implicit class withJsonMethods(json: JsValue) {
     val fields = json.asJsObject.fields
     def get[T: JsonReader](name: String) = fields(name).convertTo[T]
-    def inputs: Seq[Node] = fields("inputs").convertTo[Seq[Node]]
+    def inputs: Seq[Op] = fields("inputs").convertTo[Seq[Op]]
     def param[T: JsonReader](name: String): T = {
       fields("parameters")
         .asJsObject
