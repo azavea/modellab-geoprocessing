@@ -1,8 +1,7 @@
-<configuration debug="true">
+<configuration debug="false">
 
     <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-
             <pattern>%d{HH:mm:ss.SSS} [%thread{8}] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
@@ -14,7 +13,7 @@
         </encoder>
     </appender>
 
-    <logger name="com.azavea" level="DEBUG">
+    <logger name="com.azavea" level="DEBUG" additivity="false">
         <appender-ref ref="console"/>
         <appender-ref ref="file"/>
     </logger>
