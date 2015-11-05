@@ -2,6 +2,8 @@ name := "modellab"
 
 Common.settings
 
+resolvers += Resolver.bintrayRepo("azavea", "geotrellis")
+
 libraryDependencies ++= Seq(
   Library.scalaTest,
   Library.logbackClassic,
