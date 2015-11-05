@@ -17,6 +17,8 @@ class LayerRegistry(layerReader: FilteringLayerReader[LayerId, SpatialKey, Raste
   val resize = new ResizeTile(256, 512) // we're reading from DataHub, tiles need to be split to be rendred
   val window = new Window(2)            // buffer operation requests by 2 (storage) tiles each direction  
 
+  private[this] lazy val collectTimer = metrics.timer("collect")
+  
   def register(json: JsValue): JsObject = {
     import formats._
     val node = json.convertTo[Op]
@@ -65,7 +67,11 @@ class LayerRegistry(layerReader: FilteringLayerReader[LayerId, SpatialKey, Raste
           tileCache.lookup(key) match {
             case Some(ft) => ft
             case None =>
-              val ft = future { layer(zoom - resize.zoomOffset, bounds).collect }            
+              val ft = future { 
+                collectTimer.time {
+                  layer(zoom - resize.zoomOffset, bounds).collect 
+                }
+              }
               tileCache.insert(key, ft)
               ft
           }
