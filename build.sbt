@@ -22,8 +22,8 @@ initialCommands in console :=
   val catalog = new DataHubCatalog {
     implicit val sc = geotrellis.spark.utils.SparkUtils.createLocalSparkContext("local[*]", "Model Service")
   }
-  
-  val formats = new NodeFormats(new WindowedReader(catalog.layerReader, 8))
+  val registry = new LayerRegistry(catalog.layerReader)
+  val formats = new NodeFormats(new WindowedReader(catalog.layerReader, 8), registry.getLayer)
   import formats._
   """
 

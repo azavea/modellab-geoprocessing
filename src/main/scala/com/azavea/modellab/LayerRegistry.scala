@@ -15,7 +15,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 class LayerRegistry(layerReader: FilteringLayerReader[LayerId, SpatialKey, RasterRDD[SpatialKey]]) extends Instrumented {
   private val layerCache = new TrieMap[String, Node]
 
-  val formats = new NodeFormats(new WindowedReader(layerReader, 6)) // base layer is read and cached in 8x8 native tiles
+  val formats = new NodeFormats(new WindowedReader(layerReader, 6), getLayer) // base layer is read and cached in 8x8 native tiles
   val resize = new ResizeTile(256, 512) // we're reading from DataHub, tiles need to be split to be rendred
   val window = new Window(2)            // buffer operation requests by 2 (storage) tiles each direction  
 

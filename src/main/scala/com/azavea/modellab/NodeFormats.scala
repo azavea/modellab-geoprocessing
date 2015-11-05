@@ -20,25 +20,30 @@ import scala.util.Try
  * Transforms JSON Tree to Node object tree
  * @param WindowedReader  used by LoadLayer, which is the leaf in Node object tree
  */
-class NodeFormats(windowedReader: WindowedReader) {
+class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[Node]) {
 
   // Node trait doesn't have enough information to implement this, so this is mostly a type switch
   implicit object NodeFormat extends JsonFormat[Node] {
     def read(json: JsValue) = {
-      val fields = json.asJsObject.fields
-      json.get[String]("function_name") match {
-        case name if name.startsWith("Local") =>
-          LocalBinaryOpFormat.read(json)
-        case name if name.startsWith("Focal") =>
-          FocalOpFormat.read(json)
-        case "Aspect" =>
-          AspectOpFormat.read(json)
-        case "Slope" => 
-          SlopeOpFormat.read(json)
-        case "MapValues" =>
-          MapValuesOpFormat.read(json)
-        case "LoadLayer" =>
-          LoadLayerFormat.read(json)
+      json match {
+        case JsString(hash) =>
+          layerLookup(hash).getOrElse(
+            throw new DeserializationException(s"Failed to find layer for hash: $hash as specified in $json"))
+        case JsObject(fields) =>
+          json.get[String]("function_name") match {
+            case name if name.startsWith("Local") =>
+              LocalBinaryOpFormat.read(json)
+            case name if name.startsWith("Focal") =>
+              FocalOpFormat.read(json)
+            case "Aspect" =>
+              AspectOpFormat.read(json)
+            case "Slope" => 
+              SlopeOpFormat.read(json)
+            case "MapValues" =>
+              MapValuesOpFormat.read(json)
+            case "LoadLayer" =>
+              LoadLayerFormat.read(json)
+          }
       }
     }
 
