@@ -7,6 +7,7 @@ import shapeless.ops.hlist._
 import geotrellis.spark._
 import geotrellis.spark.io._
 import geotrellis.spark.op.focal._
+import geotrellis.raster.op.elevation._
 import geotrellis.raster._
 import geotrellis.raster.op.local._
 import geotrellis.raster.op.focal._
@@ -42,10 +43,13 @@ trait Node extends Serializable with Instrumented {
     }
   }
 
-  def hash: String = {
-    val buff = ByteBuffer.allocate(8);
+  def inputs: Seq[Node]
+
+  def hashString: String = {
+    val buff = ByteBuffer.allocate(4);
     buff.putInt(hashCode)
-    Base64.encodeBase64(buff.array).mkString
+    //32 bit int in base 64 is always going to be padded with '=='
+    Base64.encodeBase64(buff.array).map(_.toChar).mkString.substring(0,6)
   }
 }
 
@@ -53,9 +57,16 @@ case class LoadLayer(layerName: String, layerReader: WindowedReader) extends Nod
   def calc(zoom: Int, bounds: GridBounds) = {
     layerReader.getView(LayerId(layerName, zoom), bounds)
   }
+
+  def inputs = Seq.empty
+
+  override def hashCode = layerName.hashCode
+
+  override def toString = s"LoadLayer($layerName)"
 }
 
 case class FocalOp(
+  name: String,
   op: (Tile, Neighborhood, Option[GridBounds]) => Tile,
   input: Node,
   n: Neighborhood
@@ -68,46 +79,56 @@ case class FocalOp(
     bounds.rowMax + cells)
 
   def calc(zoom: Int, bounds: GridBounds) = {
-    val rasterRDD = input(zoom, bounds)
-    val metaData = rasterRDD.metaData
+    val _op = op
     val extended = buffer(bounds, 1)
-    println(s"FOCAL: $bounds -> $extended")
-    val tileRDD = FocalOperation(rasterRDD, n, Some(bounds))(op)
+    val rasterRDD = input(zoom, extended)
+    val metaData = rasterRDD.metaData
+    val tileRDD = FocalOperation(rasterRDD, n, Some(bounds))(_op)
       .filter { case (key, _) => bounds.contains(key.col, key.row) } // filter buffer tiles, they contain no information
     new RasterRDD(tileRDD, metaData)
   }
+
+  def inputs = Seq(input)
+
+  override def hashCode = (name, n, input).hashCode
+  override def toString = s"FocalOp($name, ${n.getClass.getSimpleName}, $input)"
 }
 
 case class AspectOp(
-  op: (Tile, Neighborhood, Option[GridBounds], CellSize) => Tile,
   input: Node,
   n: Neighborhood
 ) extends Node {
   def calc(zoom: Int, bounds: GridBounds) = {
     val rasterRDD = input(zoom, bounds)
-    val metaData = rasterRDD.metaData
-    val cs = metaData.layout.rasterExtent.cellSize
-    val tileRDD = rasterRDD map { case (key, tile) => key -> op(tile, n, None, cs) }
-    new RasterRDD(tileRDD, metaData)
+    val cs = rasterRDD.metaData.layout.rasterExtent.cellSize
+    rasterRDD.mapTiles { tile => Aspect(tile, n, None, cs) }    
   }
+
+  def inputs = Seq(input)
+
+  override def hashCode = ("Aspect", input, n).hashCode
+  override def toString = s"AspectOp(${n.getClass.getSimpleName}, $input)"
 }
 
 case class SlopeOp(
-  op: (Tile, Neighborhood, Option[GridBounds], CellSize, Double) => Tile,
   input: Node,
   n: Neighborhood,
   z: Double
 ) extends Node {
   def calc(zoom: Int, bounds: GridBounds) = {
     val rasterRDD = input(zoom, bounds)
-    val metaData = rasterRDD.metaData
-    val cs = metaData.layout.rasterExtent.cellSize
-    val tileRDD = rasterRDD map { case (key, tile) => key -> op(tile, n, None, cs, z) }
-    new RasterRDD(tileRDD, metaData)
+    val cs = rasterRDD.metaData.layout.rasterExtent.cellSize
+    rasterRDD.mapTiles { tile => Slope(tile, n, None, cs, z) }
   }
+
+  def inputs = Seq(input)
+  
+  override def hashCode = ("Slope", input, n, z).hashCode
+  override def toString = s"SlopeOp(${n.getClass.getSimpleName}, $input)"
 }
 
 case class LocalUnaryOp(
+  name: String,
   op: Function1[Tile, Tile],
   input: Node
 ) extends Node {
@@ -115,17 +136,22 @@ case class LocalUnaryOp(
     val _op = op
     input(zoom, bounds).mapTiles(_op)
   }
+
+  def inputs = Seq(input)
+  
+  override def hashCode = name.hashCode + input.hashCode
+  override def toString = s"LocalUnaryOp($name, $input)"
 }
 
 case class LocalBinaryOp(
   op: LocalTileBinaryOp,
-  input: Seq[Node],
+  inputs: Seq[Node],
   const: Option[Double] = None // Constant value
 ) extends Node {
   def calc(zoom: Int, bounds: GridBounds) = {    
     val _op = op
-    val metaData = input.head(zoom, bounds).metaData
-    val tileRDD = input
+    val metaData = inputs.head(zoom, bounds).metaData
+    val tileRDD = inputs
       .map { _(zoom, bounds).tileRdd }
       .reduce { _ union _ }
       .reduceByKey(
@@ -145,6 +171,9 @@ case class LocalBinaryOp(
 
     new RasterRDD(outTile, metaData)
   }
+
+  override def hashCode = (op.name, inputs, const).hashCode  
+  override def toString = s"LocalBinaryOp(${op.name}, $const, $inputs)"
 }
 
 case class MapValuesOp(
@@ -167,5 +196,9 @@ case class MapValuesOp(
     }
     new RasterRDD(tileRDD, metaData)
   }
+
+  def inputs = Seq(input)
+
+  override def hashCode = (input, mappings).hashCode  
 }
 
