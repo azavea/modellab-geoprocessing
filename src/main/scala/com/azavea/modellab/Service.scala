@@ -30,6 +30,7 @@ import spray.httpx.SprayJsonSupport._
 import spray.json._
 import spray.routing._
 import MediaTypes._
+import spray.http.HttpHeaders.RawHeader
 
 object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented with App {
   private[this] lazy val requestTimer = metrics.timer("tileRequest")
@@ -46,10 +47,12 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
   def registerLayerRoute = 
     post {
       requestInstance { req =>
-        complete {
-          import DefaultJsonProtocol._
-          val json = req.entity.asString.parseJson      
-          registry.register(json)
+        respondWithHeader(RawHeader("Access-Control-Allow-Origin", "*")) {
+          complete {
+            import DefaultJsonProtocol._
+            val json = req.entity.asString.parseJson      
+            registry.register(json)
+          }
         }
       } 
     } ~ 
