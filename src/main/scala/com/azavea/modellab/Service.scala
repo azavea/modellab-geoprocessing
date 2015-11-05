@@ -80,7 +80,7 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
 
             colorBreaks.update(breaksName, breaks)
             println(s"Registered Breaks: $breaksName")
-            StatusCodes.Accepted
+            StatusCodes.OK
           }
         }
       }
