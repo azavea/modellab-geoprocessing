@@ -27,6 +27,7 @@ import spray.httpx.encoding._
 import spray.httpx.unmarshalling._
 import spray.httpx.marshalling._
 import spray.httpx.SprayJsonSupport._
+import spray.util.LoggingContext
 import spray.json._
 import spray.routing._
 import MediaTypes._
@@ -116,6 +117,17 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
   
 
   startServer(interface = "0.0.0.0", port = 8888) {
-    pingPong ~ guidRoute ~ pathPrefix("layers"){registerLayerRoute} ~ pathPrefix("breaks"){registerColorBreaksRoute}
+    handleExceptions(exceptionHandler) {
+      pingPong ~ guidRoute ~ pathPrefix("layers"){registerLayerRoute} ~ pathPrefix("breaks"){registerColorBreaksRoute}
+    }
+  }
+
+  def exceptionHandler(implicit log: LoggingContext) = ExceptionHandler {
+    case e: Exception =>
+      requestUri { uri =>
+        log.warning("Request to {} could not be handled normally", uri)
+        println(e)
+        complete(StatusCodes.InternalServerError, s"$e")
+      }
   }
 }

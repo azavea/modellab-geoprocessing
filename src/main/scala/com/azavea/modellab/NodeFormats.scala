@@ -28,7 +28,7 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
       json match {
         case JsString(hash) =>
           layerLookup(hash).getOrElse(
-            throw new DeserializationException(s"Failed to find layer for hash: $hash as specified in $json"))
+            throw new DeserializationException(s"Failed to find layer for hash: $hash"))
         case JsObject(fields) =>
           json.get[String]("function_name") match {
             case name if name.startsWith("Local") =>
@@ -44,6 +44,8 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
             case "LoadLayer" =>
               LoadLayerFormat.read(json)
           }
+        case _ =>
+          throw new DeserializationException(s"Node definition may either be an object or hash string"))
       }
     }
 
