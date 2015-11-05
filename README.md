@@ -3,7 +3,7 @@
 ## Endpoints
 
 ### Register Layer
-POST: `/register`
+POST: `/layers`
 BODY: `Content-Type: application/json`
 ```json
  {  "function_name": "ValueMask",
@@ -26,6 +26,8 @@ BODY: `Content-Type: application/json`
   }
 }
 ```
+
+GET: `/layers/<layerHash>`
 
 ### Register Color Breaks
 POST: `/breaks/{color-breaks-name}`
