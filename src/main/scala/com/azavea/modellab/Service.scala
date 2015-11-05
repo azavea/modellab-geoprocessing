@@ -44,12 +44,12 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
 
   val pingPong = path("ping")(complete("pong"))
 
-  def registerLayerRoute = 
+  def registerLayerRoute = {
+    import DefaultJsonProtocol._
     post {
       requestInstance { req =>
         respondWithHeader(RawHeader("Access-Control-Allow-Origin", "*")) {
           complete {
-            import DefaultJsonProtocol._
             val json = req.entity.asString.parseJson      
             registry.register(json)
           }
@@ -58,12 +58,17 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
     } ~ 
     get {
       pathPrefix(Segment) { layerHash =>
-        complete{
-          import DefaultJsonProtocol._
+        complete{          
           registry.getLayerJson(layerHash) 
+        }
+      } ~
+      pathEnd {
+        complete {
+          JsObject("layers" -> registry.listLayers.toJson)
         }
       }
     }
+  }
 
   def registerColorBreaksRoute =
     pathPrefix(Segment) { breaksName =>

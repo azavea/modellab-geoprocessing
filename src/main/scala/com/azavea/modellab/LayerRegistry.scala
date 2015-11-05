@@ -47,6 +47,9 @@ class LayerRegistry(layerReader: FilteringLayerReader[LayerId, SpatialKey, Raste
   def getLayer(hash: String): Option[Node] = 
     layerCache.get(hash)
 
+  def listLayers: Seq[String] =
+    layerCache.keys.toSeq
+
   import geotrellis.spark.utils.cache._
   
   private val tileCache = new LRUCache[(String, GridBounds), Future[Array[(SpatialKey, Tile)]]](100L, _ => 1L) //cache last 100 windows
