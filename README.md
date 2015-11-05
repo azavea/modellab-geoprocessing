@@ -38,6 +38,9 @@ BODY: `Content-Type: application/text`
 These are NLCD breaks
 
 ### Layer TMS
-GET: `/<layer-guid>/{z}/{x}/{y}.png?breaks=<color-breaks-name>`
+GET: `/tms/<layer-guid>/{z}/{x}/{y}.png?breaks=<color-breaks-name>`
+
+### Layer Value TMS
+GET: `/tms/value/<layer-guid>/{z}/{x}/{y}.json`
 
 [Testing Leaflet Map](sample/leaflet.html)

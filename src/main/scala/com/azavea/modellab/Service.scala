@@ -82,7 +82,7 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
     }
 
 
-  def guidRoute = pathPrefix(Segment / IntNumber / IntNumber / IntNumber) { (guid, zoom, x, y) =>
+  def renderRoute = pathPrefix(Segment / IntNumber / IntNumber / IntNumber) { (hash, zoom, x, y) =>
     parameters('breaks.?) { breaksName =>
       respondWithMediaType(MediaTypes.`image/png`) {
         complete{ 
@@ -93,18 +93,38 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
             } yield tile.renderPng(breaks).bytes
           }.getOrElse(tile.renderPng().bytes)
 
-          for { optionFutureTile <- registry.getTile(guid, zoom, x, y) } yield
+          for { optionFutureTile <- registry.getTile(hash, zoom, x, y) } yield
             for { optionTile <- optionFutureTile }  yield 
               for (tile <- optionTile) yield render(tile)                               
-          }
-        } 
+        }
       }
     }
-  
+  }
+
+  def valueRoute = pathPrefix(Segment / IntNumber / IntNumber / IntNumber) { (hash, zoom, x, y) =>
+    import DefaultJsonProtocol._
+    complete{
+      def render(tile: Tile) = JsArray(
+        {for (r <- 0 to tile.rows) yield
+          JsArray({for (c <- 0 to tile.cols) yield JsNumber(tile.get(c, r))}.toVector)
+        }.toVector
+      )
+
+      for { optionFutureTile <- registry.getTile(hash, zoom, x, y) } yield
+        for { optionTile <- optionFutureTile }  yield
+          for (tile <- optionTile) yield render(tile)
+    }
+  }
 
   startServer(interface = "0.0.0.0", port = 8888) {
     handleExceptions(exceptionHandler) {
-      pingPong ~ guidRoute ~ pathPrefix("layers"){registerLayerRoute} ~ pathPrefix("breaks"){registerColorBreaksRoute}
+      pathPrefix("tms") {
+        renderRoute ~
+        pathPrefix("value") { valueRoute }
+      } ~
+      pingPong ~
+      pathPrefix("layers"){registerLayerRoute} ~
+      pathPrefix("breaks"){registerColorBreaksRoute}
     }
   }
 
