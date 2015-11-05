@@ -18,55 +18,37 @@ import geotrellis.spark.utils.SparkUtils
 import geotrellis.vector._
 import geotrellis.vector.reproject._
 
+import scala.collection.mutable
 import scala.concurrent._
 import scala.concurrent.ExecutionContext.Implicits.global
 
-import spray.http.MediaTypes
-import spray.http.StatusCodes
+import spray.http._
 import spray.httpx.encoding._
-import spray.httpx.SprayJsonSupport._
 import spray.httpx.unmarshalling._
+import spray.httpx.marshalling._
+import spray.httpx.SprayJsonSupport._
 import spray.json._
 import spray.routing._
-
-object TestNodes {
-  import java.io.IOException;
-  import java.nio.file.Files;
-  import java.nio.file.Paths;
-
-  val maskCities = new String(Files.readAllBytes(Paths.get("sample/sample_mask_cities.json"))).parseJson
-  val maskForest = new String(Files.readAllBytes(Paths.get("sample/sample_mask_forest.json"))).parseJson
-  val localAdd = new String(Files.readAllBytes(Paths.get("sample/localAdd.json"))).parseJson
-}
+import MediaTypes._
 
 object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented with App {
   private[this] lazy val requestTimer = metrics.timer("tileRequest")
 
-
   implicit val system = ActorSystem("spray-system")
   implicit val sc = geotrellis.spark.utils.SparkUtils.createLocalSparkContext("local[*]", "Model Service")
 
-  import scala.collection.mutable
-
   val colorBreaks = mutable.HashMap.empty[String, ColorBreaks]
 
-  val registry = new LayerRegistry
-  val parser = new Parser(registry, layerReader)
-
-  // Testing: Auto load some Op definitions.
-  parser.parse(TestNodes.maskCities)
-  parser.parse(TestNodes.maskForest)
-  parser.parse(TestNodes.localAdd)
+  val registry = new LayerRegistry(layerReader)
 
   val pingPong = path("ping")(complete("pong"))
 
   def registerLayerRoute = post {
     requestInstance { req =>
       complete {
-        val json = req.entity.asString.parseJson
-        val node = parser.parse(json)
-        println(s"Registered: $node")
-        StatusCodes.Accepted
+        import DefaultJsonProtocol._
+        val json = req.entity.asString.parseJson      
+        registry.register(json)
       }
     }
   }

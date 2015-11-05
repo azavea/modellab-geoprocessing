@@ -7,18 +7,32 @@ import geotrellis.raster.io.geotiff._
 import geotrellis.raster._
 import geotrellis.spark.io._
 import org.apache.spark.rdd._
+import scala.collection.concurrent.TrieMap
 
-import scala.collection.mutable
-
-class LayerRegistry {
+class LayerRegistry(layerReader: FilteringLayerReader[LayerId, SpatialKey, RasterRDD[SpatialKey]]) extends Instrumented {
   type GUID = String
+  private val layerCache = new TrieMap[String, Node]
 
-  private val layerCache = mutable.HashMap.empty[GUID, Node]
+  val formats = new NodeFormats(new WindowedReader(layerReader, 8))
 
-  def registerLayer(guid: GUID, layer: Node): Node = {
-    println(s"Registred: $guid")
-    layerCache.update(guid, layer)
-    layer
+  def register(json: JsValue): JsObject = {
+    import formats._
+    val node = json.convertTo[Node]
+    registerNodeTree(node)
+    node.toJson.asJsObject
+  }
+
+  def registerNodeTree(node: Node): Unit = {
+    val hash = node.hashString
+
+    layerCache.putIfAbsent(hash, 
+      {
+        logger.info(s"Register: $hash == $node")
+        node
+      })    
+
+    for (input <- node.inputs)
+      registerNodeTree(input)
   }
 
   def getLayer(guid: GUID): Option[Node] = layerCache.get(guid)
