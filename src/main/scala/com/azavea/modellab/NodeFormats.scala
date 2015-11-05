@@ -14,7 +14,7 @@ import geotrellis.raster.op.focal._
 class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[Op]) {
 
   // Node trait doesn't have enough information to implement this, so this is mostly a type switch
-  implicit object NodeFormat extends JsonFormat[Op] {
+  implicit object OpFormat extends JsonFormat[Op] {
     def read(json: JsValue) = {
       json match {
         case JsString(hash) =>
@@ -22,18 +22,18 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
             throw new DeserializationException(s"Failed to find layer for hash: $hash"))
         case JsObject(fields) =>
           json.get[String]("function_name") match {
-            case name if name.startsWith("Local") =>
-              LocalBinaryOpFormat.read(json)
-            case name if name.startsWith("Focal") =>
-              FocalOpFormat.read(json)
-            case "Aspect" =>
-              AspectOpFormat.read(json)
-            case "Slope" => 
-              SlopeOpFormat.read(json)
-            case "MapValues" =>
-              MapValuesOpFormat.read(json)
             case "LoadLayer" =>
               LoadLayerFormat.read(json)
+            case "FocalAspect" =>
+              FocalAspectFormat.read(json)
+            case "FocalSlope" =>
+              SlopeOpFormat.read(json)
+            case "MapValues" =>
+              MapValuesFormat.read(json)
+            case name if name.startsWith("Local") =>
+              LocalBinaryFormat.read(json)
+            case name if name.startsWith("Focal") =>
+              FocalFormat.read(json)
           }
         case _ =>
           throw new DeserializationException(s"Node definition may either be an object or hash string")
@@ -43,16 +43,16 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
     def write(node: Op): JsValue = node match {
       case op: LoadLayer =>
         LoadLayerFormat.write(op)
-      case op: LocalBinaryOp =>
-        LocalBinaryOpFormat.write(op)
-      case op: FocalOp =>
-        FocalOpFormat.write(op)
-      case op: SlopeOp =>
+      case op: LocalBinary =>
+        LocalBinaryFormat.write(op)
+      case op: Focal =>
+        FocalFormat.write(op)
+      case op: FocalSlope =>
         SlopeOpFormat.write(op)
-      case op: AspectOp =>
-        AspectOpFormat.write(op)
-      case op: MapValuesOp =>
-        MapValuesOpFormat.write(op)
+      case op: FocalAspect =>
+        FocalAspectFormat.write(op)
+      case op: MapValues =>
+        MapValuesFormat.write(op)
     }
   }
 
@@ -136,13 +136,13 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
     }
   }
 
-  implicit object MapValuesOpFormat extends JsonFormat[MapValuesOp] {
+  implicit object MapValuesFormat extends JsonFormat[MapValues] {
     def read(json: JsValue) = {
       val mappings = json.param[Seq[(Seq[Int], Option[Int])]]("mappings")
-      MapValuesOp(json.inputs.head, mappings)
+      MapValues(json.inputs.head, mappings)
     }
 
-    def write(o: MapValuesOp) = 
+    def write(o: MapValues) =
       writeNode(o, s"MapValues", "mappings" -> o.mappings.toJson)
   }
 
@@ -155,48 +155,48 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
       writeNode(o, s"LoadLayer", "layer_name" -> JsString(o.layerName)) 
   }
 
-  implicit object AspectOpFormat extends JsonFormat[AspectOp] {
+  implicit object FocalAspectFormat extends JsonFormat[FocalAspect] {
     def read(json: JsValue) = {
       require(json.inputs.size == 1, "FocalAspect expexect one layer input")
-      AspectOp(json.inputs.head, json.param[Neighborhood]("neighborhood"))
+      FocalAspect(json.inputs.head, json.param[Neighborhood]("neighborhood"))
     }
 
-    def write(o: AspectOp) = 
+    def write(o: FocalAspect) =
       writeNode(o, "FocalAspect", "neighborhood" -> o.n.toJson)
   }
 
-  implicit object SlopeOpFormat extends JsonFormat[SlopeOp] {
+  implicit object SlopeOpFormat extends JsonFormat[FocalSlope] {
     def read(json: JsValue) = {
       require(json.inputs.size == 1, "FocalAspect expexect one layer input")
-      SlopeOp(json.inputs.head, json.param[Neighborhood]("neighborhood"), json.param[Double]("z_factor"))
+      FocalSlope(json.inputs.head, json.param[Neighborhood]("neighborhood"), json.param[Double]("z_factor"))
     }
 
-    def write(o: SlopeOp) = 
+    def write(o: FocalSlope) =
       writeNode(o, "FocalSlope", "neighborhood" -> o.n.toJson, "z_factor" -> o.z.toJson)
   }
 
-  implicit object LocalBinaryOpFormat extends JsonFormat[LocalBinaryOp] {
+  implicit object LocalBinaryFormat extends JsonFormat[LocalBinary] {
     def read(json: JsValue) = {
       val inputs = json.inputs
       val constant = json.optionalParam[Double]("constant")
       
       json.get[String]("function_name") match {
         case "LocalAdd" => 
-          LocalBinaryOp(Add, inputs, constant)
+          LocalBinary(Add, inputs, constant)
         case "LocalSubtract" => 
-          LocalBinaryOp(Subtract, inputs, constant)
+          LocalBinary(Subtract, inputs, constant)
         case "LocalMultiply" =>
-          LocalBinaryOp(Multiply, inputs, constant)
+          LocalBinary(Multiply, inputs, constant)
         case "LocalDivide" =>
-          LocalBinaryOp(Divide, inputs, constant)
+          LocalBinary(Divide, inputs, constant)
       }
     }
 
-    def write(o: LocalBinaryOp) = 
+    def write(o: LocalBinary) =
       writeNode(o, s"Local${o.op.name}", "constant" -> o.const.toJson)
   }
 
-  implicit object FocalOpFormat extends JsonFormat[FocalOp] {
+  implicit object FocalFormat extends JsonFormat[Focal] {
     def read(json: JsValue) = {
       require(json.inputs.size == 1, "Focal operations expexect one layer input")
       val input = json.inputs.head
@@ -204,17 +204,17 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
 
       json.get[String]("function_name") match {
         case "FocalSum" =>
-          FocalOp("Sum", focal.Sum.apply, input, n)
+          Focal("Sum", focal.Sum.apply, input, n)
         case "FocalMax" =>          
-          FocalOp("Max", focal.Max.apply, input, n)
+          Focal("Max", focal.Max.apply, input, n)
         case "FocalMin" =>
-          FocalOp("Min", focal.Min.apply, input, n)
+          Focal("Min", focal.Min.apply, input, n)
         case "FocalMean" =>
-          FocalOp("Mean", focal.Mean.apply, input, n)
+          Focal("Mean", focal.Mean.apply, input, n)
       }
     }
 
-    def write(o: FocalOp) = 
+    def write(o: Focal) =
       writeNode(o, s"Focal${o.name}", "neighborhood" -> o.n.toJson)
   }
 }

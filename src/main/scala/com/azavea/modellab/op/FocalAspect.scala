@@ -4,19 +4,18 @@ import geotrellis.raster._
 import geotrellis.raster.op.elevation._
 import geotrellis.raster.op.focal._
 
-case class SlopeOp(
+case class FocalAspect(
   input: Op,
-  n: Neighborhood,
-  z: Double
+  n: Neighborhood
 ) extends Op {
   def calc(zoom: Int, bounds: GridBounds) = {
     val rasterRDD = input(zoom, bounds)
     val cs = rasterRDD.metaData.layout.rasterExtent.cellSize
-    rasterRDD.mapTiles { tile => Slope(tile, n, None, cs, z) }
+    rasterRDD.mapTiles { tile => Aspect(tile, n, None, cs) }
   }
 
   def inputs = Seq(input)
 
-  override def hashCode = ("Slope", input, n, z).hashCode
-  override def toString = s"SlopeOp(${n.getClass.getSimpleName}, $input)"
+  override def hashCode = ("FocalAspect", input, n).hashCode
+  override def toString = s"FocalAspect(${n.getClass.getSimpleName}, $input)"
 }

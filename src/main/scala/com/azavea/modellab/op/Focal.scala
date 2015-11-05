@@ -5,7 +5,7 @@ import geotrellis.raster.op.focal._
 import geotrellis.spark._
 import geotrellis.spark.op.focal._
 
-case class FocalOp(
+case class Focal(
   name: String,
   op: (Tile, Neighborhood, Option[GridBounds]) => Tile,
   input: Op,

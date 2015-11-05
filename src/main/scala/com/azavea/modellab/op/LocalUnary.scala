@@ -2,7 +2,7 @@ package com.azavea.modellab.op
 
 import geotrellis.raster._
 
-case class LocalUnaryOp(
+case class LocalUnary(
   name: String,
   op: Tile => Tile,
   input: Op

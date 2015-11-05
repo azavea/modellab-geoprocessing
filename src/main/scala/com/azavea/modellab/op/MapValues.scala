@@ -3,7 +3,7 @@ package com.azavea.modellab.op
 import geotrellis.raster._
 import geotrellis.spark._
 
-case class MapValuesOp(
+case class MapValues(
   input: Op,
   mappings: Seq[(Seq[Int], Option[Int])]
 ) extends Op {

@@ -4,7 +4,7 @@ import geotrellis.raster._
 import geotrellis.raster.op.local._
 import geotrellis.spark._
 
-case class LocalBinaryOp(
+case class LocalBinary(
   op: LocalTileBinaryOp,
   inputs: Seq[Op],
   const: Option[Double] = None // Constant value
