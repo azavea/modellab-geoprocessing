@@ -62,7 +62,6 @@ class NodeFormats(windowedReader: WindowedReader) {
   private def writeNode(node: Node, name: String, paramFields: (String, JsValue)*) = JsObject(
     "function_name" -> JsString(name),
     "inputs" -> node.inputs.toJson,
-    "hashCode" -> JsNumber(node.hashCode),
     "hash" -> JsString(node.hashString),
     "parameters" -> JsObject(paramFields.toMap))
 
