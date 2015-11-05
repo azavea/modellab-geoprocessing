@@ -52,7 +52,7 @@ class WindowedReader(
         col <- List(bounds.colMin, bounds.colMax)
       } yield getWindow(id, SpatialKey(col, row))
     }.toSet
-    println(s"Request: $id - $bounds intersects: ${windows.size} windows")
+    logger.debug(s"Request: $id - $bounds intersects: ${windows.size} windows")
     val metaData = windows.head.metaData
     val tilesRDD = windows
       .map { _.filter { case (key, tile) => bounds.contains(key.col, key.row) } }
