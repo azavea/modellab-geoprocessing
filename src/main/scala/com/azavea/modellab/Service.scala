@@ -106,7 +106,16 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
     complete{
       def render(tile: Tile) = JsArray(
         {for (r <- 0 to tile.rows) yield
-          JsArray({for (c <- 0 to tile.cols) yield JsNumber(tile.get(c, r))}.toVector)
+          JsArray(
+            {for (c <- 0 to tile.cols) yield
+              JsNumber(
+                if (tile.cellType.isFloatingPoint)
+                  tile.getDouble(c, r)
+                else
+                  tile.get(c,r)
+              )
+            }.toVector
+          )
         }.toVector
       )
 
