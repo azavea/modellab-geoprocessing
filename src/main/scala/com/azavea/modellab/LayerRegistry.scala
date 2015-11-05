@@ -44,14 +44,6 @@ class LayerRegistry(layerReader: FilteringLayerReader[LayerId, SpatialKey, Raste
   def getLayer(hash: String): Option[Node] = 
     layerCache.get(hash)
 
-  def buffer(key: SpatialKey, buffer: Int) = {
-    val SpatialKey(col, row) = key
-    GridBounds(
-      col - col % buffer, row - row % buffer,
-      col + (buffer - col % buffer), row + (buffer - row % buffer))
-  }
-
-
   def getTile(hash: String, zoom: Int, col: Int, row: Int): Option[Tile] = {
     val requestKey = SpatialKey(col, row)
     val storedKey = resize.getStoredKey(requestKey)
