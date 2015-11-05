@@ -93,22 +93,22 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
   def guidRoute = pathPrefix(Segment / IntNumber / IntNumber / IntNumber) { (guid, zoom, x, y) =>
     parameters('breaks.?) { breaksName =>
       respondWithMediaType(MediaTypes.`image/png`) {
-        complete{ future {
-          requestTimer.time {
-            registry.getTile(guid, zoom - 1, x, y)
-              .map { tile =>
-                {
-                  for {
-                    name <- breaksName
-                    breaks <- colorBreaks.get(name)
-                  } yield tile.renderPng(breaks).bytes
-                }.getOrElse(tile.renderPng().bytes )
-              }
+        complete{ 
+          def render(tile: Tile): Array[Byte] = {
+            for {
+              name <- breaksName
+              breaks <- colorBreaks.get(name)
+            } yield tile.renderPng(breaks).bytes
+          }.getOrElse(tile.renderPng().bytes)
+
+          for { optionFutureTile <- registry.getTile(guid, zoom, x, y) } yield
+            for { optionTile <- optionFutureTile }  yield 
+              for (tile <- optionTile) yield render(tile)                               
           }
-        } }
+        } 
       }
     }
-  }
+  
 
   startServer(interface = "0.0.0.0", port = 8888) {
     pingPong ~ guidRoute ~ pathPrefix("layers"){registerLayerRoute} ~ pathPrefix("breaks"){registerColorBreaksRoute}

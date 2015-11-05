@@ -37,10 +37,14 @@ trait Node extends Serializable with Instrumented {
     val name = s"${this.getClass.getSimpleName}($zoom, $bounds)"
 
     // NOTE: We used to cache here to store every layer and their intermidiate results
-    Node.cache.synchronized {
-      if ( Node.cache.contains(key) ) cacheHit += 1 else cacheMiss += 1      
-      Node.cache.getOrElseUpdate(key, calc(zoom, bounds).setName(name).cache)
-    }
+    // We actually disable the cache because it appears caching result tiles in LRU cache on the driver is more efficient
+    //  likely there will be cases where that is not true, benchmarking may change this conclusion
+    
+    // Node.cache.synchronized {
+    //   if ( Node.cache.contains(key) ) cacheHit += 1 else cacheMiss += 1      
+    //   Node.cache.getOrElseUpdate(key, calc(zoom, bounds).setName(name).cache)
+    // }
+    calc(zoom, bounds).setName(name)
   }
 
   def inputs: Seq[Node]

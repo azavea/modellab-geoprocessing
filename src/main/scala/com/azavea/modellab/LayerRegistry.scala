@@ -8,11 +8,14 @@ import geotrellis.raster._
 import geotrellis.spark.io._
 import org.apache.spark.rdd._
 import scala.collection.concurrent.TrieMap
+import scala.concurrent._
+import scala.concurrent.ExecutionContext.Implicits.global
+
 
 class LayerRegistry(layerReader: FilteringLayerReader[LayerId, SpatialKey, RasterRDD[SpatialKey]]) extends Instrumented {
   private val layerCache = new TrieMap[String, Node]
 
-  val formats = new NodeFormats(new WindowedReader(layerReader, 8)) // base layer is read and cached in 8x8 native tiles
+  val formats = new NodeFormats(new WindowedReader(layerReader, 6)) // base layer is read and cached in 8x8 native tiles
   val resize = new ResizeTile(256, 512) // we're reading from DataHub, tiles need to be split to be rendred
   val window = new Window(2)            // buffer operation requests by 2 (storage) tiles each direction  
 
@@ -44,13 +47,33 @@ class LayerRegistry(layerReader: FilteringLayerReader[LayerId, SpatialKey, Raste
   def getLayer(hash: String): Option[Node] = 
     layerCache.get(hash)
 
-  def getTile(hash: String, zoom: Int, col: Int, row: Int): Option[Tile] = {
-    val requestKey = SpatialKey(col, row)
-    val storedKey = resize.getStoredKey(requestKey)
-    val bounds = window.getWindowBounds(storedKey)    
-    getLayer(hash).map { window =>
-      val tiles = window(zoom, bounds).lookup(storedKey)
-      resize.getTile(requestKey, tiles.head)
+  import geotrellis.spark.utils.cache._
+  
+  private val tileCache = new LRUCache[(String, GridBounds), Future[Array[(SpatialKey, Tile)]]](100L, _ => 1L) //cache last 100 windows
+  
+  def getTile(hash: String, zoom: Int, col: Int, row: Int): Option[Future[Option[Tile]]] = {
+    for { layer <- getLayer(hash) } yield {
+      val requestKey = SpatialKey(col, row)
+      val storedKey = resize.getStoredKey(requestKey)
+      val bounds = window.getWindowBounds(storedKey)    
+
+      val futureTiles: Future[Array[(SpatialKey, Tile)]] = 
+        tileCache.synchronized {
+          val key = (hash, bounds)
+          // this funny way doing it as required because Cache.getOrInsert will double eval the value, causing two futures to be spawned
+          tileCache.lookup(key) match {
+            case Some(ft) => ft
+            case None =>
+              val ft = future { layer(zoom - resize.zoomOffset, bounds).collect }            
+              tileCache.insert(key, ft)
+              ft
+          }
+        }      
+
+      futureTiles.map { tiles: Array[(SpatialKey, Tile)] =>
+        for { (key, tile) <- tiles.find( _._1 == storedKey) } 
+        yield resize.getTile(requestKey, tile)     
+      }
     }
   }
 }
