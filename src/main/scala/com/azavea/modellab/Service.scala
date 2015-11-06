@@ -108,12 +108,13 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
         {for (r <- 0 to tile.rows) yield
           JsArray(
             {for (c <- 0 to tile.cols) yield
-              JsNumber(
-                if (tile.cellType.isFloatingPoint)
-                  tile.getDouble(c, r)
-                else
-                  tile.get(c,r)
-              )
+              if (tile.cellType.isFloatingPoint) {
+                val v = tile.getDouble(c, r)
+                if (isNoData(v)) JsNull else JsNumber(v)
+              } else {
+                val v = tile.get(c, r)
+                if (isNoData(v)) JsNull else JsNumber(v)
+              }
             }.toVector
           )
         }.toVector
