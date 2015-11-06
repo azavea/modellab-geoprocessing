@@ -1,0 +1,13 @@
+POST /layers HTTP/1.1
+Content-Type: application/json
+Host: localhost:8888
+Connection: close
+User-Agent: Paw/2.2.5 (Macintosh; OS X/10.10.5) GCDHTTPRequest
+Content-Length: 129
+
+{
+  "function_name": "LoadLayer",
+  "parameters": {
+    "layer_name": "us-pennsylvania-philadelphia-elevation-30m-epsg3857"
+  }
+}

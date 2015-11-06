@@ -1,6 +1,10 @@
-sudo: required
-
 language: scala
+sudo: required
+scala:
+  - 2.10.5
+  - 2.11.7
+script:
+- "echo no op"
 
 services:
   - docker

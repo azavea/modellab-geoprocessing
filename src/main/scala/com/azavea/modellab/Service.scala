@@ -2,84 +2,69 @@ package com.azavea.modellab
 
 import akka.actor.ActorSystem
 
-import geotrellis.proj4._
 import geotrellis.raster._
-import geotrellis.raster.histogram._
-import geotrellis.raster.io.json._
 import geotrellis.raster.render._
-import geotrellis.raster.resample._
-import geotrellis.spark._
-import geotrellis.spark.io._
-import geotrellis.spark.io.avro.codecs._
-import geotrellis.spark.io.json._
-import geotrellis.spark.io.s3._
-import geotrellis.spark.tiling._
-import geotrellis.spark.utils.SparkUtils
-import geotrellis.vector._
-import geotrellis.vector.reproject._
-
+import scala.collection.mutable
 import scala.concurrent._
 import scala.concurrent.ExecutionContext.Implicits.global
 
-import spray.http.MediaTypes
-import spray.http.StatusCodes
+import spray.http._
 import spray.httpx.encoding._
-import spray.httpx.SprayJsonSupport._
 import spray.httpx.unmarshalling._
+import spray.httpx.marshalling._
+import spray.httpx.SprayJsonSupport._
+import spray.util.LoggingContext
 import spray.json._
 import spray.routing._
+import MediaTypes._
 import spray.http.HttpHeaders.RawHeader
 
-object TestNodes {
-  import java.io.IOException;
-  import java.nio.file.Files;
-  import java.nio.file.Paths;
+object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented with App {
+  private[this] lazy val requestTimer = metrics.timer("tileRequest")
 
-  val maskCities = new String(Files.readAllBytes(Paths.get("sample/sample_mask_cities.json"))).parseJson    
-  val maskForest = new String(Files.readAllBytes(Paths.get("sample/sample_mask_forest.json"))).parseJson
-  val localAdd = new String(Files.readAllBytes(Paths.get("sample/localAdd.json"))).parseJson
-}
-
-
-object Service extends SimpleRoutingApp with DataHubCatalog  with App {
   implicit val system = ActorSystem("spray-system")
   implicit val sc = geotrellis.spark.utils.SparkUtils.createLocalSparkContext("local[*]", "Model Service")
-  
-  import scala.collection.mutable
-  
+
   val colorBreaks = mutable.HashMap.empty[String, ColorBreaks]
 
-  val regsitry = new LayerRegistry
-  val parser = new Parser(regsitry, layerReader)
-
-  // Testing: Auto load some Op definitions.
-  parser.parse(TestNodes.maskCities)
-  parser.parse(TestNodes.maskForest)
-  parser.parse(TestNodes.localAdd)
+  val registry = new LayerRegistry(layerReader)
 
   val pingPong = path("ping")(complete("pong"))
 
-  def registerLayerRoute = post {
-    requestInstance { req =>
-      respondWithHeader(RawHeader("Access-Control-Allow-Origin", "*")) {
+  def registerLayerRoute = {
+    import DefaultJsonProtocol._
+    post {
+      requestInstance { req =>
+        respondWithHeader(RawHeader("Access-Control-Allow-Origin", "*")) {
+          complete {
+            val json = req.entity.asString.parseJson      
+            registry.register(json)
+          }
+        }
+      } 
+    } ~ 
+    get {
+      pathPrefix(Segment) { layerHash =>
+        complete{          
+          registry.getLayerJson(layerHash) 
+        }
+      } ~
+      pathEnd {
         complete {
-          val json = req.entity.asString.parseJson
-          val node = parser.parse(json)
-          println(s"Registered: $node")
-          StatusCodes.Accepted
+          JsObject("layers" -> registry.listLayers.toJson)
         }
       }
     }
   }
 
-  def registerColorBreaksRoute = 
+  def registerColorBreaksRoute =
     pathPrefix(Segment) { breaksName =>
       post {
         requestInstance { req =>
           complete {
-            import java.math.BigInteger            
+            import java.math.BigInteger
 
-            val blob = req.entity.asString            
+            val blob = req.entity.asString
             val breaks = {
               val split = blob.split(";").map(_.trim.split(":"))
               println(split.toList)
@@ -89,32 +74,76 @@ object Service extends SimpleRoutingApp with DataHubCatalog  with App {
             }
 
             colorBreaks.update(breaksName, breaks)
-            println(s"Registered Breaks: $breaksName")        
-            StatusCodes.Accepted
+            println(s"Registered Breaks: $breaksName")
+            StatusCodes.OK
           }
         }
       }
     }
 
-  def guidRoute = pathPrefix(Segment / IntNumber / IntNumber / IntNumber) { (guid, zoom, x, y) =>
-    parameters('breaks.?) { breaksName => 
+
+  def renderRoute = pathPrefix(Segment / IntNumber / IntNumber / IntNumber) { (hash, zoom, x, y) =>
+    parameters('breaks.?) { breaksName =>
       respondWithMediaType(MediaTypes.`image/png`) {
-        complete{ future {
-          regsitry.getTile(guid, zoom - 1, x, y)            
-            .map { tile =>
-              {
-                for {
-                  name <- breaksName
-                  breaks <- colorBreaks.get(name)
-                } yield tile.renderPng(breaks).bytes 
-              }.getOrElse(tile.renderPng().bytes )
-            }
-        } }
+        complete{ 
+          def render(tile: Tile): Array[Byte] = {
+            for {
+              name <- breaksName
+              breaks <- colorBreaks.get(name)
+            } yield tile.renderPng(breaks).bytes
+          }.getOrElse(tile.renderPng().bytes)
+
+          for { optionFutureTile <- registry.getTile(hash, zoom, x, y) } yield
+            for { optionTile <- optionFutureTile }  yield 
+              for (tile <- optionTile) yield render(tile)                               
+        }
       }
     }
   }
 
+  def valueRoute = pathPrefix(Segment / IntNumber / IntNumber / IntNumber) { (hash, zoom, x, y) =>
+    import DefaultJsonProtocol._
+    complete{
+      def render(tile: Tile) = JsArray(
+        {for (r <- 0 to tile.rows) yield
+          JsArray(
+            {for (c <- 0 to tile.cols) yield
+              if (tile.cellType.isFloatingPoint) {
+                val v = tile.getDouble(c, r)
+                if (isNoData(v)) JsNull else JsNumber(v)
+              } else {
+                val v = tile.get(c, r)
+                if (isNoData(v)) JsNull else JsNumber(v)
+              }
+            }.toVector
+          )
+        }.toVector
+      )
+
+      for { optionFutureTile <- registry.getTile(hash, zoom, x, y) } yield
+        for { optionTile <- optionFutureTile }  yield
+          for (tile <- optionTile) yield render(tile)
+    }
+  }
+
   startServer(interface = "0.0.0.0", port = 8888) {
-    pingPong ~ guidRoute ~ path("register"){registerLayerRoute} ~ pathPrefix("breaks"){registerColorBreaksRoute}
+    handleExceptions(exceptionHandler) {
+      pathPrefix("tms") {
+        renderRoute ~
+        pathPrefix("value") { valueRoute }
+      } ~
+      pingPong ~
+      pathPrefix("layers"){registerLayerRoute} ~
+      pathPrefix("breaks"){registerColorBreaksRoute}
+    }
+  }
+
+  def exceptionHandler(implicit log: LoggingContext) = ExceptionHandler {
+    case e: Exception =>
+      requestUri { uri =>
+        log.warning("Request to {} could not be handled normally", uri)
+        println(e)
+        complete(StatusCodes.InternalServerError, s"$e")
+      }
   }
 }
