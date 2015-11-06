@@ -1,10 +1,4 @@
-language: scala
 sudo: required
-scala:
-  - 2.10.5
-  - 2.11.7
-script:
-- "echo no op"
 
 services:
   - docker
@@ -27,10 +21,6 @@ deploy:
   api_key:
     secure: NllnEN36jPxZLvTmLb/JN9Eh5wOlMV5Q/FwSQe/OqCHF2WWasdlAW+CHT2m0gb0cLb9NqwwoFRDJcqYn+XFCuK5Gboc9s6/rQe9oj3EeiyO75lF2XzVLF+MQxvbnb6X9XCFAs7ezcEVBbpM5Yaaclx9bT7WodrFD/s5+09RS5NMZBKZe2UyZmfz1oKIFWLCEvpau+VXnLFZX5z2R41ZBtLBORAuQrjGRs6ed/QXtLtBwQjRcsnlchhk7LAC1LfPIoTWzC8vkiQyLXMjVFTcTeKcHdec6txiSesciCAvEwE/grAfOKp1YCXdjXzYthnwL2V+vc1X9IcNTOyQEBuQArquw1pmA9PjKZm4GU93Om9DflZgy/oHqxiCKrauvyc1c8R5e4kGsIbl+lkgcFu/P4QutEXC8U50z+qS5HGr9hKJDV9te+z4mzbvbvVahWlwBXUOk48maPWTRS7FaRBTvOqaizgow9tuy9on3bTc5GTwyQhAxu6v6NvcMvE2e/JvZWKTVR7H+pR9nKwF+LbnsYu+ZPwX8qtkhl/HX9xDd0RuSDXx8izywV25BpuwapNKHOCLWW4suZKFvoKz6xZ5r5fcIOJVVTHwXuMTezQH9dCkdqA0olrRWn07VSdWeJJM3N+DTVS0nsW03o8KvImiNtHtXdS3hf85xInlBgVWq4AA=
   file:
-    - sample/localAdd.json
-    - sample/sample.json
-    - sample/sample_mask_cities.json
-    - sample/sample_mask_forest.json
     - target/scala-2.10/modellab-geoprocessing-assembly-${TRAVIS_TAG}.jar
   skip_cleanup: true
   on:
