@@ -46,11 +46,3 @@ trait DataHubCatalog extends Catalog with Instrumented {
   lazy val layerWriter = S3LayerWriter[SpatialKey, Tile, RasterRDD](bucket, key, ZCurveKeyIndexMethod)
 
 }
-
-trait TestCatalog extends Catalog {
-  implicit def sc: SparkContext
-
-  val catalogPath = new Path("file:/Users/eugene/tmp/model-lab/catalog")
-  lazy val layerReader = HadoopLayerReader[SpatialKey, Tile, RasterRDD](catalogPath)
-  lazy val layerWriter = HadoopLayerWriter[SpatialKey, Tile, RasterRDD](catalogPath, ZCurveKeyIndexMethod)
-}
