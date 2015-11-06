@@ -1,0 +1,22 @@
+POST /layers HTTP/1.1
+Content-Type: application/json
+Host: localhost:8888
+Connection: close
+User-Agent: Paw/2.2.5 (Macintosh; OS X/10.10.5) GCDHTTPRequest
+Content-Length: 257
+
+ {  
+  "function_name": "MapValues",
+  "inputs": [
+    {
+      "function_name": "LoadLayer",
+      "parameters": 
+        {
+          "layer_name": "nlcd-zoomed"
+        }      
+    }
+  ],
+  "parameters": {
+    "mappings": [ [[21, 22, 23, 24], null] ]
+  }
+}
