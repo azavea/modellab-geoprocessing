@@ -29,15 +29,23 @@
     L.marker([39.73, -104.8]).bindPopup('This is Aurora, CO.').addTo(cities),
     L.marker([39.77, -105.23]).bindPopup('This is Golden, CO.').addTo(cities);
 
-        var nlcdUrl = 'http://localhost:8888/7c6173e2-cdfb-4401-b3e9-f9b3d4da3c0e/{z}/{x}/{y}.png?breaks=nlcd';
-        var nlcdCitiesMaskUrl = 'http://localhost:8888/80ef666c-cities/{z}/{x}/{y}.png?breaks=nlcd';
-        var nlcdForestMaskUrl = 'http://localhost:8888/80ef666c-forest/{z}/{x}/{y}.png?breaks=nlcd';
+        var nlcdUrl = 'http://localhost:8888/tms/FqTuoA/{z}/{x}/{y}.png?breaks=nlcd';
+        var elevationUrl = 'http://localhost:8888/tms/NW1s9w/{z}/{x}/{y}.png';
+        var nlcdFocalUrl = 'http://localhost:8888/tms/yy3O2Q/{z}/{x}/{y}.png?breaks=nlcd';
+        var nlcdForestMaskUrl = 'http://localhost:8888/tms/GKQ8Mw/{z}/{x}/{y}.png?breaks=nlcd';
+        var roughnessUrl = 'http://localhost:8888/tms/gXbYxA/{z}/{x}/{y}.png?breaks=tr';
         var baseMbUrl = 'https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token=pk.eyJ1IjoibWFwYm94IiwiYSI6IjZjNmRjNzk3ZmE2MTcwOTEwMGY0MzU3YjUzOWFmNWZhIn0.Y8bhBaUMqFiPrDRW9hieoQ';
 
-        var base   = L.tileLayer(baseMbUrl, {id: 'mapbox.streets'});
-        var nlcd = L.tileLayer(nlcdUrl, {maxNativeZoom: 13});
-        var nlcd_city  = L.tileLayer(nlcdCitiesMaskUrl, {maxNativeZoom: 13});
-        var nlcd_forest  = L.tileLayer(nlcdForestMaskUrl, {maxNativeZoom: 13});
+        var base = new L.TileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_nolabels/{z}/{x}/{y}.png', {
+          attribution: 'Raster Foundry | Map data &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="http://cartodb.com/attributions">CartoDB</a>',
+          maxZoom: 18
+        });
+        var layerOpacity = 0.5;
+        var nlcd = L.tileLayer(nlcdUrl, {maxNativeZoom: 13, opacity: layerOpacity});
+        var elevation  = L.tileLayer(elevationUrl, {maxNativeZoom: 13});
+        var nlcd_focal  = L.tileLayer(nlcdFocalUrl, {maxNativeZoom: 13, opacity: layerOpacity});
+        var nlcd_forest  = L.tileLayer(nlcdForestMaskUrl, {maxNativeZoom: 13, opacity: layerOpacity});
+        var roughness  = L.tileLayer(roughnessUrl, {maxNativeZoom: 13});
 
     var map = L.map('map', {
       center: [39.9500, -75.1667],
@@ -45,10 +53,14 @@
       layers: [nlcd]
     });
 
+    map.addLayer(base)
+
     var baseLayers = {
       "nlcd": nlcd,
-      "nlcd_city": nlcd_city,
-      "nlcd_forest": nlcd_forest
+      "elevation": elevation,
+      "nlcd_focal": nlcd_focal,
+      "nlcd_forest": nlcd_forest,
+      "Roughness": roughness
     };
 
     var overlays = {

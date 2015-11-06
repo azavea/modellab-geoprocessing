@@ -1,0 +1,6 @@
+GET /layers/yy3O2Q HTTP/1.1
+Content-Type: application/json
+Host: localhost:8888
+Connection: close
+User-Agent: Paw/2.2.5 (Macintosh; OS X/10.10.5) GCDHTTPRequest
+

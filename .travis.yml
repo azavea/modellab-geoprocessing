@@ -1,0 +1,32 @@
+sudo: required
+
+services:
+  - docker
+
+cache:
+  directories:
+    - $HOME/.ivy2/cache
+    - $HOME/.sbt/boot/
+
+script:
+  - mkdir -p ${HOME}/.sbt
+  - docker run -v ${HOME}/.ivy2:/root/.ivy2 -v ${HOME}/.sbt:/root/.sbt -v ${PWD}:/modellab-geoprocessing -w /modellab-geoprocessing quay.io/azavea/spark:latest ./sbt test
+
+before_deploy:
+  - docker run -v ${HOME}/.ivy2:/root/.ivy2 -v ${HOME}/.sbt:/root/.sbt -v ${PWD}:/modellab-geoprocessing -w /modellab-geoprocessing quay.io/azavea/spark:latest ./sbt assembly
+  - sudo chown ${USER} target/scala-2.10/modellab-geoprocessing-assembly-${TRAVIS_TAG}.jar
+
+deploy:
+  provider: releases
+  api_key:
+    secure: NllnEN36jPxZLvTmLb/JN9Eh5wOlMV5Q/FwSQe/OqCHF2WWasdlAW+CHT2m0gb0cLb9NqwwoFRDJcqYn+XFCuK5Gboc9s6/rQe9oj3EeiyO75lF2XzVLF+MQxvbnb6X9XCFAs7ezcEVBbpM5Yaaclx9bT7WodrFD/s5+09RS5NMZBKZe2UyZmfz1oKIFWLCEvpau+VXnLFZX5z2R41ZBtLBORAuQrjGRs6ed/QXtLtBwQjRcsnlchhk7LAC1LfPIoTWzC8vkiQyLXMjVFTcTeKcHdec6txiSesciCAvEwE/grAfOKp1YCXdjXzYthnwL2V+vc1X9IcNTOyQEBuQArquw1pmA9PjKZm4GU93Om9DflZgy/oHqxiCKrauvyc1c8R5e4kGsIbl+lkgcFu/P4QutEXC8U50z+qS5HGr9hKJDV9te+z4mzbvbvVahWlwBXUOk48maPWTRS7FaRBTvOqaizgow9tuy9on3bTc5GTwyQhAxu6v6NvcMvE2e/JvZWKTVR7H+pR9nKwF+LbnsYu+ZPwX8qtkhl/HX9xDd0RuSDXx8izywV25BpuwapNKHOCLWW4suZKFvoKz6xZ5r5fcIOJVVTHwXuMTezQH9dCkdqA0olrRWn07VSdWeJJM3N+DTVS0nsW03o8KvImiNtHtXdS3hf85xInlBgVWq4AA=
+  file:
+    - target/scala-2.10/modellab-geoprocessing-assembly-${TRAVIS_TAG}.jar
+  skip_cleanup: true
+  on:
+    repo: azavea/modellab-geoprocessing
+    tags: true
+
+notifications:
+  slack:
+    secure: Vx7Qu4o6H/ruf0eO+f3fGkOj4VzBBz0g1V26W1+UJcP67SsM8a8HESsfbFR2Jl0fcRaQIITfs5NkZ3dPLM72DcSfMlXyEL1mmWPqdKkvo7Lgbm1GIZG3NE5jg2tUlcBbavgORL8ZGA5EfEtwmD5frFZBMUgBu+VCKKBk6Xn12pi8tLb86cG2X9l9FwZkQkgGdk17FriW60IPSnrmt7X6xHRq1SLCrQxuzQSr6mGsjYOytO5DdOTRR14mZLis7O/gFu3SeldOH1JwsuFIxABqEiB0dXNwKwy2tI04y8eP0TqxpZIhe04I6IlFqXtaurMOrTN8md1zpGms5Oe1p/MELYI+JMNSpV77MHUW/maF0lVZyNcUdi+rwHmTQeIwEMo4akpOb0E2Dl2cD4B5XjKwl4K9c3o40ymGJGqUL0sOPKBR77w153aJaYdWe3ux526KPJFtPEY+8ImN6PfQHyuhBArJ53l7GIByr8e/e5+g+ppBdaaoiC+1+sqpF2T3Npa59utS5XJjeBBXVUP3S0P46WeJXR4bRUq8emengJQoi/997fzTOhQN7VJfFR/dLXxe5NNTDlSTM++fW1VEg1kolg3D1By9xLxxGL5SpHWlyOn2Q+FdhfGOxgQ+tDDzZDbQwhR2d+wnNLNctGlFNYjcORAwoDi/eMLZDFb2Zlc7J/M=
