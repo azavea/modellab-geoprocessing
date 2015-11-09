@@ -1,0 +1,6 @@
+{
+    "function_name": "LoadLayer",
+    "parameters": {
+        "layer_name": "us-pennsylvania-philadelphia-landsat-red-30m-epsg3857"
+    }
+}

@@ -1,0 +1,15 @@
+ {
+     "function_name": "FocalMin",
+     "inputs": [{
+         "function_name": "LoadLayer",
+         "parameters": {
+             "layer_name": "nlcd-zoomed"
+         }
+     }],
+     "parameters": {
+         "neighborhood": {
+             "shape": "square",
+             "size": 1
+         }
+     }
+ }

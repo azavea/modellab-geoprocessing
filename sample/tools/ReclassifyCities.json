@@ -1,0 +1,16 @@
+ {
+     "function_name": "MapValues",
+     "inputs": [{
+         "function_name": "LoadLayer",
+         "parameters": {
+             "layer_name": "nlcd-zoomed"
+         }
+     }],
+     "parameters": {
+         "mappings": [
+             [
+                 [21, 22, 23, 24], null
+             ]
+         ]
+     }
+ }
