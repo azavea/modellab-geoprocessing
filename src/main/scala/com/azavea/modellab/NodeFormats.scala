@@ -21,7 +21,7 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
           layerLookup(hash).getOrElse(
             throw new DeserializationException(s"Failed to find layer for hash: $hash"))
         case JsObject(fields) =>
-          json.get[String]("function_name") match {
+          json.get[String]("name") match {
             case "LoadLayer" =>
               LoadLayerFormat.read(json)
             case "FocalAspect" =>
@@ -59,7 +59,7 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
   // Helper function to convert nodes to JsObject
   private def writeNode(node: Op, name: String, paramFields: (String, JsValue)*) =
     JsObject(Map.empty
-      + ("function_name" -> JsString(name))
+      + ("name" -> JsString(name))
       + ("hash" -> JsString(node.hashString))
       ++ paramFields
       + ("inputs" -> node.inputs.toJson)
@@ -155,7 +155,7 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
 
   implicit object FocalAspectFormat extends JsonFormat[FocalAspect] {
     def read(json: JsValue) = {
-      require(json.inputs.size == 1, "FocalAspect expexect one layer input")
+      require(json.inputs.size == 1, "FocalAspect expect one layer input")
       FocalAspect(json.inputs.head, json.param[Neighborhood]("neighborhood"))
     }
 
@@ -165,7 +165,7 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
 
   implicit object SlopeOpFormat extends JsonFormat[FocalSlope] {
     def read(json: JsValue) = {
-      require(json.inputs.size == 1, "FocalAspect expexect one layer input")
+      require(json.inputs.size == 1, "FocalAspect expect one layer input")
       FocalSlope(json.inputs.head, json.param[Neighborhood]("neighborhood"), json.param[Double]("z_factor"))
     }
 
@@ -178,7 +178,7 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
       val inputs = json.inputs
       val constant = json.optionalParam[Double]("constant")
       
-      json.get[String]("function_name") match {
+      json.get[String]("name") match {
         case "LocalAdd" => 
           LocalBinary(Add, inputs, constant)
         case "LocalSubtract" => 
@@ -196,11 +196,11 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
 
   implicit object FocalFormat extends JsonFormat[Focal] {
     def read(json: JsValue) = {
-      require(json.inputs.size == 1, "Focal operations expexect one layer input")
+      require(json.inputs.size == 1, "Focal operations expect one layer input")
       val input = json.inputs.head
       val n = json.param[Neighborhood]("neighborhood")
 
-      json.get[String]("function_name") match {
+      json.get[String]("name") match {
         case "FocalSum" =>
           Focal("Sum", focal.Sum.apply, input, n)
         case "FocalMax" =>          

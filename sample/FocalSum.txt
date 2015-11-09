@@ -6,10 +6,10 @@ User-Agent: Paw/2.2.5 (Macintosh; OS X/10.10.5) GCDHTTPRequest
 Content-Length: 264
 
  {  
-  "function_name": "FocalMin",
+  "name": "FocalMin",
   "inputs": [
     {
-      "function_name": "LoadLayer",
+      "name": "LoadLayer",
       "layer_name": "nlcd-zoomed"
     }
   ],

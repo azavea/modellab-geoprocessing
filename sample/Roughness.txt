@@ -5,15 +5,16 @@ Connection: close
 User-Agent: Paw/2.2.5 (Macintosh; OS X/10.10.5) GCDHTTPRequest
 Content-Length: 353
 
-{  "function_name": "LocalSubtract",
+{
+  "name": "LocalSubtract",
   "inputs": [
     {
-      "function_name": "FocalMax",
+      "name": "FocalMax",
       "neighborhood": { "shape": "square", "size": 1 },
       "inputs": ["NW1s9w"]
     },
     {
-      "function_name": "FocalMin",
+      "name": "FocalMin",
       "neighborhood": { "shape": "square", "size": 1 },
       "inputs": ["NW1s9w"]
     }
