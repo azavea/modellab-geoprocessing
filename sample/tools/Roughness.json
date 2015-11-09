@@ -7,9 +7,7 @@
         "shape": "square",
         "size": 1
       },
-      "inputs": [
-        "NW1s9w"
-      ]
+      "inputs": ["GVWWZ5Y"]
     },
     {
       "name": "FocalMin",
@@ -17,9 +15,7 @@
         "shape": "square",
         "size": 1
       },
-      "inputs": [
-        "NW1s9w"
-      ]
+      "inputs": ["GVWWZ5Y"]
     }
   ]
 }
