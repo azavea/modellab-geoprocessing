@@ -57,11 +57,13 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
   }
 
   // Helper function to convert nodes to JsObject
-  private def writeNode(node: Op, name: String, paramFields: (String, JsValue)*) = JsObject(
-    "function_name" -> JsString(name),
-    "inputs" -> node.inputs.toJson,
-    "hash" -> JsString(node.hashString),
-    "parameters" -> JsObject(paramFields.toMap))
+  private def writeNode(node: Op, name: String, paramFields: (String, JsValue)*) =
+    JsObject(Map.empty
+      + ("function_name" -> JsString(name))
+      + ("hash" -> JsString(node.hashString))
+      ++ paramFields
+      + ("inputs" -> node.inputs.toJson)
+    )
 
   //lets make it easy on ourselves to work with JsValue that is actually a Node
   implicit class withJsonMethods(json: JsValue) {
@@ -69,14 +71,10 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
     def get[T: JsonReader](name: String) = fields(name).convertTo[T]
     def inputs: Seq[Op] = fields("inputs").convertTo[Seq[Op]]
     def param[T: JsonReader](name: String): T = {
-      fields("parameters")
-        .asJsObject
-        .fields(name)
-        .convertTo[T]
+      fields(name).convertTo[T]
     }
     def optionalParam[T: JsonFormat](name: String): Option[T] = {
       for {
-        paramList <- fields.get("parameters")
         paramObj <- fields.get(name)
         value <- paramObj.convertTo[Option[T]]
       } yield value

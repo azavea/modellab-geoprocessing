@@ -16,7 +16,5 @@ Content-Length: 257
         }      
     }
   ],
-  "parameters": {
-    "mappings": [ [[21, 22, 23, 24], null] ]
-  }
+  "mappings": [ [[21, 22, 23, 24], null] ]
 }
