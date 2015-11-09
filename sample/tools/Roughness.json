@@ -1,0 +1,22 @@
+{
+    "function_name": "LocalSubtract",
+    "inputs": [{
+        "function_name": "FocalMax",
+        "parameters": {
+            "neighborhood": {
+                "shape": "square",
+                "size": 1
+            }
+        },
+        "inputs": ["NW1s9w"]
+    }, {
+        "function_name": "FocalMin",
+        "parameters": {
+            "neighborhood": {
+                "shape": "square",
+                "size": 1
+            }
+        },
+        "inputs": ["NW1s9w"]
+    }]
+}

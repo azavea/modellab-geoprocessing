@@ -1,0 +1,6 @@
+{
+    "function_name": "LoadLayer",
+    "parameters": {
+        "layer_name": "us-pennsylvania-philadelphia-nlcd2001-impervious-30m-epsg3857"
+    }
+}
