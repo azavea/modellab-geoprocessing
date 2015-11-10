@@ -12,7 +12,9 @@ case class FocalSlope(
   def calc(zoom: Int, bounds: GridBounds) = {
     val rasterRDD = input(zoom, bounds)
     val cs = rasterRDD.metaData.layout.rasterExtent.cellSize
-    rasterRDD.mapTiles { tile => Slope(tile, n, None, cs, z) }
+    val _z = z
+    val _n = n
+    rasterRDD.mapTiles { tile => Slope(tile, _n, None, cs, _z) }
   }
 
   def inputs = Seq(input)

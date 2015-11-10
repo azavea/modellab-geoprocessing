@@ -1,0 +1,11 @@
+{
+  "name": "FocalSlope",
+  "neighborhood": {
+    "shape": "square",
+    "size": 1
+  },
+  "z_factor": 1,
+  "inputs": [
+    "GVWWZ5Y"
+  ]
+}
