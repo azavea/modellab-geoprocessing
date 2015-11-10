@@ -61,21 +61,23 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
     pathPrefix(Segment) { breaksName =>
       post {
         requestInstance { req =>
-          complete {
-            import java.math.BigInteger
+          respondWithHeader(RawHeader("Access-Control-Allow-Origin", "*")) {
+            complete {
+              import java.math.BigInteger
 
-            val blob = req.entity.asString
-            val breaks = {
-              val split = blob.split(";").map(_.trim.split(":"))
-              println(split.toList)
-              val limits = split.map(pair => Integer.parseInt(pair(0)))
-              val colors = split.map(pair => new BigInteger(pair(1), 16).intValue())
-              ColorBreaks(limits, colors)
+              val blob = req.entity.asString
+              val breaks = {
+                val split = blob.split(";").map(_.trim.split(":"))
+                logger.debug(split.toList.toString)
+                val limits = split.map(pair => Integer.parseInt(pair(0)))
+                val colors = split.map(pair => new BigInteger(pair(1), 16).intValue())
+                ColorBreaks(limits, colors)
+              }
+
+              colorBreaks.update(breaksName, breaks)
+              println(s"Registered Breaks: $breaksName")
+              StatusCodes.OK
             }
-
-            colorBreaks.update(breaksName, breaks)
-            println(s"Registered Breaks: $breaksName")
-            StatusCodes.OK
           }
         }
       }
