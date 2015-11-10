@@ -27,7 +27,7 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
             case "FocalAspect" =>
               FocalAspectFormat.read(json)
             case "FocalSlope" =>
-              SlopeOpFormat.read(json)
+              FocalSlopeFormat.read(json)
             case "MapValues" =>
               MapValuesFormat.read(json)
             case name if name.startsWith("Local") =>
@@ -48,7 +48,7 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
       case op: Focal =>
         FocalFormat.write(op)
       case op: FocalSlope =>
-        SlopeOpFormat.write(op)
+        FocalSlopeFormat.write(op)
       case op: FocalAspect =>
         FocalAspectFormat.write(op)
       case op: MapValues =>
@@ -163,7 +163,7 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
       writeNode(o, "FocalAspect", "neighborhood" -> o.n.toJson)
   }
 
-  implicit object SlopeOpFormat extends JsonFormat[FocalSlope] {
+  implicit object FocalSlopeFormat extends JsonFormat[FocalSlope] {
     def read(json: JsValue) = {
       require(json.inputs.size == 1, "FocalAspect expect one layer input")
       FocalSlope(json.inputs.head, json.param[Neighborhood]("neighborhood"), json.param[Double]("z_factor"))
