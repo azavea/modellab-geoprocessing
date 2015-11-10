@@ -23,7 +23,7 @@ deploy:
   file:
     - sample/breaks/nlcd.data
     - sample/breaks/tr.data
-    - sample/landsatNir.json
+    - sample/layers/landsatNir.json
     - sample/layers/elevation.json
     - sample/layers/impervious2001.json
     - sample/layers/impervious2011.json
