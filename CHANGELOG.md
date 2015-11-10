@@ -1,3 +1,7 @@
+## 0.2.2
+
+- A minor error in the Travis configuration file was corrected.
+
 ## 0.2.1
 
 - A minor error in the Travis configuration file was corrected.
