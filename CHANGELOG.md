@@ -1,3 +1,7 @@
+## 0.2.0
+
+- The routes used for registering breaks and layers have been changed, as have those for accessing tiles.
+
 ## 0.1.0
 
 - Initial release.
