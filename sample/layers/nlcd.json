@@ -1,6 +1,4 @@
 {
-    "function_name": "LoadLayer",
-    "parameters": {
-        "layer_name": "nlcd-zoomed"
-    }
+  "name": "LoadLayer",
+  "layer_name": "nlcd-zoomed"
 }

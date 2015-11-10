@@ -1,22 +1,21 @@
 {
-    "function_name": "LocalSubtract",
-    "inputs": [{
-        "function_name": "FocalMax",
-        "parameters": {
-            "neighborhood": {
-                "shape": "square",
-                "size": 1
-            }
-        },
-        "inputs": ["NW1s9w"]
-    }, {
-        "function_name": "FocalMin",
-        "parameters": {
-            "neighborhood": {
-                "shape": "square",
-                "size": 1
-            }
-        },
-        "inputs": ["NW1s9w"]
-    }]
+  "name": "LocalSubtract",
+  "inputs": [
+    {
+      "name": "FocalMax",
+      "neighborhood": {
+        "shape": "square",
+        "size": 1
+      },
+      "inputs": ["GVWWZ5Y"]
+    },
+    {
+      "name": "FocalMin",
+      "neighborhood": {
+        "shape": "square",
+        "size": 1
+      },
+      "inputs": ["GVWWZ5Y"]
+    }
+  ]
 }

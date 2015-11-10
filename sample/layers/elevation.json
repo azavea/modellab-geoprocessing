@@ -1,6 +1,4 @@
 {
-    "function_name": "LoadLayer",
-    "parameters": {
-        "layer_name": "us-pennsylvania-philadelphia-elevation-30m-epsg3857"
-    }
+  "name": "LoadLayer",
+  "layer_name": "us-pennsylvania-philadelphia-elevation-30m-epsg3857"
 }

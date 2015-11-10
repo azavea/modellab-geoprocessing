@@ -43,7 +43,7 @@ trait Op extends Serializable with Instrumented {
   def hashString: String = {
     val buff = ByteBuffer.allocate(4)
     buff.putInt(hashCode)
-    //32 bit int in base 64 is always going to be padded with '=='
-    Base64.encodeBase64(buff.array).map(_.toChar).mkString.substring(0,6)
+    //32 bit int in base32 is always going to be padded with '='
+    (new Base32).encode(buff.array).map(_.toChar).mkString.substring(0,7)
   }
 }
