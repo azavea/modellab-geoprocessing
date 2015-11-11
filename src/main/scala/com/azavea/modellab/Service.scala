@@ -37,8 +37,9 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
       requestInstance { req =>
         respondWithHeader(RawHeader("Access-Control-Allow-Origin", "*")) {
           complete {
-            val json = req.entity.asString.parseJson      
-            registry.register(json)
+            val requestJson = req.entity.asString.parseJson
+            val renderedJson = registry.register(requestJson)
+            JsonMerge(renderedJson, requestJson).asJsObject
           }
         }
       } 
