@@ -11,7 +11,8 @@ case class FocalAspect(
   def calc(zoom: Int, bounds: GridBounds) = {
     val rasterRDD = input(zoom, bounds)
     val cs = rasterRDD.metaData.layout.rasterExtent.cellSize
-    rasterRDD.mapTiles { tile => Aspect(tile, n, None, cs) }
+    val _n = n
+    rasterRDD.mapTiles { tile => Aspect(tile, _n, None, cs) }
   }
 
   def inputs = Seq(input)

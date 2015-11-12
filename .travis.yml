@@ -23,15 +23,26 @@ deploy:
   file:
     - sample/breaks/nlcd.data
     - sample/breaks/tr.data
-    - sample/layers/landsatNir.json
+    - sample/layers/canopy2001.json
+    - sample/layers/census2010popsqmi.json
+    - sample/layers/census2010popsqmiQuantile.json
+    - sample/layers/census2010totalpop.json
+    - sample/layers/census2010totalpopQuantile.json
+    - sample/layers/census2013income.json
+    - sample/layers/census2013incomeQuantile.json
     - sample/layers/elevation.json
     - sample/layers/impervious2001.json
     - sample/layers/impervious2011.json
+    - sample/layers/landcover2006.json
+    - sample/layers/landcover2011.json
     - sample/layers/landsatBlue.json
     - sample/layers/landsatGreen.json
+    - sample/layers/landsatNir.json
     - sample/layers/landsatRed.json
-    - sample/layers/water.json
     - sample/layers/nlcd.json
+    - sample/layers/reclass2011.json
+    - sample/layers/trees2011.json
+    - sample/layers/water2011.json
     - target/scala-2.10/modellab-geoprocessing-assembly-${TRAVIS_TAG}.jar
   skip_cleanup: true
   on:
