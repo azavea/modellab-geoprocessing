@@ -3,7 +3,7 @@ package com.azavea.modellab
 import com.azavea.modellab.op._
 import spray.json._
 import spray.json.DefaultJsonProtocol._
-import geotrellis.raster.op.local._
+import geotrellis.raster.op.local
 import geotrellis.raster.op.focal
 import geotrellis.raster.op.focal._
 
@@ -30,6 +30,8 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
               FocalSlopeFormat.read(json)
             case "MapValues" =>
               MapValuesFormat.read(json)
+            case name if name.startsWith("LocalUnary") =>
+              LocalUnaryFormat.read(json)
             case name if name.startsWith("Local") =>
               LocalBinaryFormat.read(json)
             case name if name.startsWith("Focal") =>
@@ -45,6 +47,8 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
         LoadLayerFormat.write(op)
       case op: LocalBinary =>
         LocalBinaryFormat.write(op)
+      case op: LocalUnary =>
+        LocalUnaryFormat.write(op)
       case op: Focal =>
         FocalFormat.write(op)
       case op: FocalSlope =>
@@ -180,18 +184,72 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
       
       json.get[String]("name") match {
         case "LocalAdd" => 
-          LocalBinary(Add, inputs, constant)
+          LocalBinary(local.Add, inputs, constant)
         case "LocalSubtract" => 
-          LocalBinary(Subtract, inputs, constant)
+          LocalBinary(local.Subtract, inputs, constant)
         case "LocalMultiply" =>
-          LocalBinary(Multiply, inputs, constant)
+          LocalBinary(local.Multiply, inputs, constant)
         case "LocalDivide" =>
-          LocalBinary(Divide, inputs, constant)
+          LocalBinary(local.Divide, inputs, constant)
+        case "LocalMin" =>
+          LocalBinary(local.Min, inputs, constant)
+        case "LocalPow" =>
+          LocalBinary(local.Pow, inputs, constant)
+        case "LocalAtan2" =>
+          LocalBinary(Atan2, inputs, constant)
       }
     }
 
     def write(o: LocalBinary) =
       writeNode(o, s"Local${o.op.name}", "constant" -> o.const.toJson)
+  }
+
+  implicit object LocalUnaryFormat extends JsonFormat[LocalUnary] {
+    def read(json: JsValue) = {
+      val inputs = json.inputs
+      
+      json.get[String]("name") match {
+        case "LocalUnarySqrt" =>
+          LocalUnary("LocalUnarySqrt", local.Sqrt.apply, inputs.head)
+        case "LocalUnaryRound" =>
+          LocalUnary("LocalUnaryRound", local.Round.apply, inputs.head)
+        case "LocalUnaryLog" =>
+          LocalUnary("LocalUnaryLog", local.Log.apply, inputs.head)
+        case "LocalUnaryLog10" =>
+          LocalUnary("LocalUnaryLog10", local.Log10.apply, inputs.head)
+        case "LocalUnaryFloor" =>
+          LocalUnary("LocalUnaryFloor", local.Floor.apply, inputs.head)
+        case "LocalUnaryCeil" =>
+          LocalUnary("LocalUnaryCeil", local.Ceil.apply, inputs.head)
+        case "LocalUnaryNegate" =>
+          LocalUnary("LocalUnaryNegate", local.Negate.apply, inputs.head)
+        case "LocalUnaryNot" =>
+          LocalUnary("LocalUnaryNot", local.Not.apply, inputs.head)
+        case "LocalUnaryAbs" =>
+          LocalUnary("LocalUnaryAbs", local.Abs.apply, inputs.head)
+        case "LocalUnaryAcos" =>
+          LocalUnary("LocalUnaryAcos", local.Acos.apply, inputs.head)
+        case "LocalUnaryAsin" =>
+          LocalUnary("LocalUnaryAsin", local.Asin.apply, inputs.head)
+        case "LocalUnaryAtan" =>
+          LocalUnary("LocalUnaryAtan", local.Atan.apply, inputs.head)
+        case "LocalUnaryCos" =>
+          LocalUnary("LocalUnaryCos", local.Cos.apply, inputs.head)
+        case "LocalUnarySin" =>
+          LocalUnary("LocalUnarySin", local.Sin.apply, inputs.head)
+        case "LocalUnaryTan" =>
+          LocalUnary("LocalUnaryTan", local.Tan.apply, inputs.head)
+        case "LocalUnaryCosh" =>
+          LocalUnary("LocalUnaryCosh", local.Cosh.apply, inputs.head)
+        case "LocalUnaryTanh" =>
+          LocalUnary("LocalUnaryTanh", local.Tanh.apply, inputs.head)
+        case "LocalUnarySinh" =>
+          LocalUnary("LocalUnarySinh", local.Sinh.apply, inputs.head)
+      }
+    }
+
+    def write(o: LocalUnary) =
+      writeNode(o, s"Local${o.name}", "constant" -> 0.toJson)
   }
 
   implicit object FocalFormat extends JsonFormat[Focal] {
