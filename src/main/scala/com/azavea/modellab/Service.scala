@@ -107,25 +107,19 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
   def valueRoute = pathPrefix(Segment / IntNumber / IntNumber / IntNumber) { (hash, zoom, x, y) =>
     import DefaultJsonProtocol._
     complete{
-      def render(tile: Tile) = JsArray(
-        {for (r <- 0 to tile.rows) yield
-          JsArray(
-            {for (c <- 0 to tile.cols) yield
-              if (tile.cellType.isFloatingPoint) {
-                val v = tile.getDouble(c, r)
-                if (isNoData(v)) JsNull else JsNumber(v)
-              } else {
-                val v = tile.get(c, r)
-                if (isNoData(v)) JsNull else JsNumber(v)
-              }
-            }.toVector
-          )
-        }.toVector
-      )
-
       for { optionFutureTile <- registry.getTile(hash, zoom, x, y) } yield
         for { optionTile <- optionFutureTile }  yield
-          for (tile <- optionTile) yield render(tile)
+          for (tile <- optionTile) yield renderAsValueGrid(tile)
+    }
+  }
+
+  lazy val sampleReader = new SampleNeighborhood(registry.getTile)
+  def sampleRoute = pathPrefix(Segment / IntNumber / DoubleNumber / DoubleNumber) { (hash, zoom, lng, lat) =>
+    parameters('bufferSize.as[Int] ? 10) { bufferSize =>
+      import DefaultJsonProtocol._
+      complete {
+        sampleReader.sample(hash, zoom, lng, lat, bufferSize).map(tile => renderAsValueGrid(tile))
+      }
     }
   }
 
@@ -134,6 +128,9 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
       pathPrefix("tms") {
         renderRoute ~
         pathPrefix("value") { valueRoute }
+      } ~
+      pathPrefix("sample") {
+        sampleRoute
       } ~
       pingPong ~
       pathPrefix("layers"){registerLayerRoute} ~
@@ -145,8 +142,25 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
     case e: Exception =>
       requestUri { uri =>
         log.warning("Request to {} could not be handled normally", uri)
-        println(e)
+        e.printStackTrace()
         complete(StatusCodes.InternalServerError, s"$e")
       }
   }
+
+
+  def renderAsValueGrid(tile: Tile) = JsArray(
+    {for (r <- 0 to tile.rows) yield
+    JsArray(
+      {for (c <- 0 to tile.cols) yield
+      if (tile.cellType.isFloatingPoint) {
+        val v = tile.getDouble(c, r)
+        if (isNoData(v)) JsNull else JsNumber(v)
+      } else {
+        val v = tile.get(c, r)
+        if (isNoData(v)) JsNull else JsNumber(v)
+      }
+      }.toVector
+    )
+    }.toVector
+  )
 }
