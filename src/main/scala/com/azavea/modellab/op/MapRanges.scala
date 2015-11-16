@@ -8,11 +8,12 @@ case class MapRanges(
   mappings: Seq[((Double, Double), Option[Double])]
 ) extends Op {
   def calc(zoom: Int, bounds: GridBounds) = {
+    val _mappings = mappings
     val rasterRDD = input(zoom, bounds)
     val metaData = rasterRDD.metaData
     // Construct a list of partial functions to be chained together
     val partialFuncs: Seq[PartialFunction[Double, Double]] =
-      mappings map { case (range: (Double, Double), mapped: Option[Double]) =>
+      _mappings map { case (range: (Double, Double), mapped: Option[Double]) =>
         // Partial functions require explicit typing
         val partFunc: PartialFunction[Double, Double] = mapped match {
           case Some(number) => { case (dub: Double) =>
