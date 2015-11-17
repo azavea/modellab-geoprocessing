@@ -267,6 +267,14 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
           Focal("Min", focal.Min.apply, input, n)
         case "FocalMean" =>
           Focal("Mean", focal.Mean.apply, input, n)
+        case "FocalMedian" =>
+          Focal("Median", focal.Median.apply, input, n)
+        case "FocalMode" =>
+          Focal("Mode", focal.Mode.apply, input, n)
+        case "FocalStandardDeviation" =>
+          Focal("StandardDeviation", focal.StandardDeviation.apply, input, n)
+        case "FocalConway" =>
+          Focal("Conway", focal.Conway.apply, input, n)
       }
     }
 
