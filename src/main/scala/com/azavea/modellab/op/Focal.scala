@@ -30,6 +30,6 @@ case class Focal(
 
   def inputs = Seq(input)
 
-  override def hashCode = (name, n, input).hashCode
+  override def hashCode = (name, n, n.getClass, input).hashCode
   override def toString = s"FocalOp($name, ${n.getClass.getSimpleName}, $input)"
 }
