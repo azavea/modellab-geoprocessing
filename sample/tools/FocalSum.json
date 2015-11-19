@@ -1,0 +1,13 @@
+{
+  "name": "FocalMin",
+  "neighborhood": {
+    "shape": "square",
+    "size": 1
+  },
+  "inputs": [
+    {
+      "name": "LoadLayer",
+      "layer_name": "nlcd-zoomed"
+    }
+  ]
+}
