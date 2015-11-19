@@ -1,6 +1,6 @@
 organization := "com.azavea.modellab"
 name := "modellab-geoprocessing"
-version := "0.2.3"
+version := "0.3.0"
 
 Common.settings
 
