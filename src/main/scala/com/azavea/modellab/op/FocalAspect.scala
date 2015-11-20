@@ -17,6 +17,6 @@ case class FocalAspect(
 
   def inputs = Seq(input)
 
-  override def hashCode = ("FocalAspect", input, n).hashCode
+  override def hashCode = ("FocalAspect", input, n, n.getClass).hashCode
   override def toString = s"FocalAspect(${n.getClass.getSimpleName}, $input)"
 }
