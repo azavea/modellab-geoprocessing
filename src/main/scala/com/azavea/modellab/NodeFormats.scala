@@ -30,6 +30,8 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
               FocalSlopeFormat.read(json)
             case "MapValues" =>
               MapValuesFormat.read(json)
+            case "MapRanges" =>
+              MapRangesFormat.read(json)
             case name if name.startsWith("LocalUnary") =>
               LocalUnaryFormat.read(json)
             case name if name.startsWith("Local") =>
@@ -57,6 +59,8 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
         FocalAspectFormat.write(op)
       case op: MapValues =>
         MapValuesFormat.write(op)
+      case op: MapRanges =>
+        MapRangesFormat.write(op)
     }
   }
 
@@ -137,6 +141,17 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
       }
     }
   }
+
+  implicit object MapRangesFormat extends JsonFormat[MapRanges] {
+    def read(json: JsValue) = {
+      val mappings = json.param[Seq[((Double, Double), Option[Double])]]("mappings")
+      MapRanges(json.inputs.head, mappings)
+    }
+
+    def write(o: MapRanges) =
+      writeNode(o, s"MapRanges", "mappings" -> o.mappings.toJson)
+  }
+
 
   implicit object MapValuesFormat extends JsonFormat[MapValues] {
     def read(json: JsValue) = {
