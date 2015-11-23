@@ -7,7 +7,7 @@ import geotrellis.raster.render._
 import scala.collection.concurrent
 import scala.concurrent._
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.Try
+import scala.util.{Try, Success, Failure}
 
 import spray.http._
 import spray.httpx.encoding._
@@ -77,6 +77,11 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
 
   def registerBreaks(breaksName: String, breaksString: String): StatusCode = {
     val (nulls, breaks) = breaksString.split(';').partition(_.contains("null"))
+    val colorBreaksFromString: String => Option[ColorBreaks] =
+      Try(breaks.map(_.split(':')(0)).foreach(Integer.parseInt(_))) match {
+        case Success(_) => ColorBreaks.fromStringInt
+        case Failure(_) => ColorBreaks.fromStringDouble
+      }
 
     // Handle NODATA
     nulls.headOption.foreach { case (str: String) =>
@@ -85,7 +90,7 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
     }
 
     // Handle normal breaks
-    ColorBreaks.fromStringInt(breaks.mkString(";")) match {
+    colorBreaksFromString(breaks.mkString(";")) match {
       case Some(breaks) => {
         println(s"Registered Breaks: $breaksName")
         colorBreaks.update(breaksName, breaks)
@@ -143,77 +148,7 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
     }
   }
 
-<<<<<<< ceb125b6affad1efb3bdc9cf4cd0a708e08d494c
   def registerColorBreaksRoute =
-||||||| merged common ancestors
-  def registerIntColorBreaksRoute =
-    pathPrefix(Segment) { breaksName =>
-      post {
-        requestInstance { req =>
-          respondWithHeader(RawHeader("Access-Control-Allow-Origin", "*")) {
-            complete {
-              val blob = req.entity.asString
-              val (nulls, breaks) = blob.split(';').partition(_.contains("null"))
-
-              // Handle NODATA
-              nulls.headOption.foreach { case (str: String) =>
-                val hexColor = str.split(':')(1)
-                noDataColors.update(breaksName, BigInt(hexColor, 16).toInt)
-              }
-
-              // Handle normal breaks
-              ColorBreaks.fromStringInt(breaks.mkString(";")) match {
-                case Some(breaks) => {
-                  println(s"Registered Breaks: $breaksName")
-                  colorBreaks.update(breaksName, breaks)
-                  StatusCodes.OK
-                }
-                case None => {
-                  StatusCodes.BadRequest
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-
-  def registerFloatColorBreaksRoute =
-=======
-  def registerIntColorBreaksRoute =
-    pathPrefix(Segment) { breaksName =>
-      post {
-        requestInstance { req =>
-          respondWithHeader(RawHeader("Access-Control-Allow-Origin", "*")) {
-            complete {
-              val blob = req.entity.asString
-              val (nulls, breaks) = blob.split(';').partition(_.contains("null"))
-
-              // Handle NODATA
-              nulls.headOption.foreach { case (str: String) =>
-                val hexColor = str.split(':')(1)
-                noDataColors.update(breaksName, BigInt(hexColor, 16).toInt)
-                println(s"Registered NoDataColor: $breaksName")
-              }
-
-              // Handle normal breaks
-              ColorBreaks.fromStringInt(breaks.mkString(";")) match {
-                case Some(breaks) => {
-                  println(s"Registered Breaks: $breaksName")
-                  colorBreaks.update(breaksName, breaks)
-                  StatusCodes.OK
-                }
-                case None => {
-                  StatusCodes.BadRequest
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-
-  def registerFloatColorBreaksRoute =
     pathPrefix(Segment) { breaksName =>
       post {
         requestInstance { req =>
@@ -226,7 +161,6 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
         }
       }
     }
-
 
   def renderRoute = pathPrefix(Segment / IntNumber / IntNumber / IntNumber) { (hash, zoom, x, y) =>
     parameters('breaks.?) { breaksName =>
