@@ -4,9 +4,10 @@ import akka.actor.ActorSystem
 
 import geotrellis.raster._
 import geotrellis.raster.render._
-import scala.collection.mutable
+import scala.collection.concurrent
 import scala.concurrent._
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.{Try, Success, Failure}
 
 import spray.http._
 import spray.httpx.encoding._
@@ -63,7 +64,8 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
   implicit val system = ActorSystem("spray-system")
   implicit val sc = geotrellis.spark.utils.SparkUtils.createLocalSparkContext("local[*]", "Model Service")
 
-  val colorBreaks = mutable.HashMap.empty[String, ColorBreaks]
+  val colorBreaks = concurrent.TrieMap.empty[String, ColorBreaks]
+  val noDataColors = concurrent.TrieMap.empty[String, Int]
 
   val registry = try {
     new LayerRegistry(layerReader)
@@ -73,22 +75,36 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
       throw new AmazonClientException(e.getMessage())
   }
 
-  def registerBreak(breaksName : String, blob : String) = {
-    import java.math.BigInteger
+  def registerBreaks(breaksName: String, breaksString: String): StatusCode = {
+    val (nulls, breaks) = breaksString.split(';').partition(_.contains("null"))
+    val colorBreaksFromString: String => Option[ColorBreaks] =
+      Try(breaks.map(_.split(':')(0)).foreach(Integer.parseInt(_))) match {
+        case Success(_) => ColorBreaks.fromStringInt
+        case Failure(_) => ColorBreaks.fromStringDouble
+      }
 
-    val breaks = {
-      val split = blob.split(";").map(_.trim.split(":"))
-      val limits = split.map(pair => Integer.parseInt(pair(0)))
-      val colors = split.map(pair => new BigInteger(pair(1), 16).intValue())
-      ColorBreaks(limits, colors)
+    // Handle NODATA
+    nulls.headOption.foreach { case (str: String) =>
+      val hexColor = str.split(':')(1)
+      noDataColors.update(breaksName, BigInt(hexColor, 16).toInt)
     }
-    colorBreaks.update(breaksName, breaks)
-    println(s"Registered Breaks: $breaksName")
+
+    // Handle normal breaks
+    colorBreaksFromString(breaks.mkString(";")) match {
+      case Some(breaks) => {
+        println(s"Registered Breaks: $breaksName")
+        colorBreaks.update(breaksName, breaks)
+        StatusCodes.OK
+      }
+      case None => {
+        StatusCodes.BadRequest
+      }
+    }
   }
 
   // Register static configuration
-  StaticConfig.layers.map { x => registry.register(x) }
-  StaticConfig.breaks.map { x => registerBreak(x._1, x._2) }
+  StaticConfig.layers.foreach { x => registry.register(x) }
+  StaticConfig.breaks.foreach { x => registerBreaks(x._1, x._2) }
 
   val pingPong = path("ping")(complete("pong"))
 
@@ -103,12 +119,12 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
             JsonMerge(renderedJson, requestJson).asJsObject
           }
         }
-      } 
-    } ~ 
+      }
+    } ~
     get {
       pathPrefix(Segment) { layerHash =>
-        complete{          
-          registry.getLayerJson(layerHash) 
+        complete{
+          registry.getLayerJson(layerHash)
         }
       } ~
       pathEnd {
@@ -125,29 +141,29 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
         requestInstance { req =>
           respondWithHeader(RawHeader("Access-Control-Allow-Origin", "*")) {
             complete {
-              registerBreak(breaksName, req.entity.asString)
-              StatusCodes.OK
+              val blob = req.entity.asString
+              registerBreaks(breaksName, blob)
             }
           }
         }
       }
     }
 
-
   def renderRoute = pathPrefix(Segment / IntNumber / IntNumber / IntNumber) { (hash, zoom, x, y) =>
     parameters('breaks.?) { breaksName =>
       respondWithMediaType(MediaTypes.`image/png`) {
-        complete{ 
+        complete{
           def render(tile: Tile): Array[Byte] = {
             for {
               name <- breaksName
               breaks <- colorBreaks.get(name)
-            } yield tile.renderPng(breaks).bytes
+              // noDataColors.getOrElse outside comprehension b/c lacking `map` implementation
+            } yield tile.renderPng(breaks, noDataColors.getOrElse(name, 0)).bytes
           }.getOrElse(tile.renderPng().bytes)
 
           for { optionFutureTile <- registry.getTile(hash, zoom, x, y) } yield
-            for { optionTile <- optionFutureTile }  yield 
-              for (tile <- optionTile) yield render(tile)                               
+            for { optionTile <- optionFutureTile }  yield
+              for (tile <- optionTile) yield render(tile)
         }
       }
     }
