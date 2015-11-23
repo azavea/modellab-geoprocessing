@@ -102,22 +102,9 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
     }
   }
 
-  def registerBreak(breaksName : String, blob : String) = {
-    import java.math.BigInteger
-
-    val breaks = {
-      val split = blob.split(";").map(_.trim.split(":"))
-      val limits = split.map(pair => Integer.parseInt(pair(0)))
-      val colors = split.map(pair => new BigInteger(pair(1), 16).intValue())
-      ColorBreaks(limits, colors)
-    }
-    colorBreaks.update(breaksName, breaks)
-    println(s"Registered Breaks: $breaksName")
-  }
-
   // Register static configuration
-  StaticConfig.layers.map { x => registry.register(x) }
-  StaticConfig.breaks.map { x => registerBreak(x._1, x._2) }
+  StaticConfig.layers.foreach { x => registry.register(x) }
+  StaticConfig.breaks.foreach { x => registerBreaks(x._1, x._2) }
 
   val pingPong = path("ping")(complete("pong"))
 
