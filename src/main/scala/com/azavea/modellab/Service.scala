@@ -19,6 +19,8 @@ import spray.routing._
 import MediaTypes._
 import spray.http.HttpHeaders.RawHeader
 
+import com.amazonaws.AmazonClientException
+
 object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented with App {
   private[this] lazy val requestTimer = metrics.timer("tileRequest")
 
@@ -27,7 +29,13 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
 
   val colorBreaks = mutable.HashMap.empty[String, ColorBreaks]
 
-  val registry = new LayerRegistry(layerReader)
+  val registry = try {
+    new LayerRegistry(layerReader)
+  } catch {
+    case e: AmazonClientException =>
+      system.shutdown()
+      throw new AmazonClientException(e.getMessage())
+  }
 
   val pingPong = path("ping")(complete("pong"))
 

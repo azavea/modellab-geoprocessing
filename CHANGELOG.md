@@ -1,3 +1,8 @@
+## 0.4.0
+
+- Added operation for masking values between specified ranges.
+- Ensure application shuts down if AWS credentials cannot be determined.
+
 ## 0.3.0
 
 - Added the remaining focal and local functions that are implemented in GeoTrellis.
