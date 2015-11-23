@@ -143,7 +143,77 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
     }
   }
 
+<<<<<<< ceb125b6affad1efb3bdc9cf4cd0a708e08d494c
   def registerColorBreaksRoute =
+||||||| merged common ancestors
+  def registerIntColorBreaksRoute =
+    pathPrefix(Segment) { breaksName =>
+      post {
+        requestInstance { req =>
+          respondWithHeader(RawHeader("Access-Control-Allow-Origin", "*")) {
+            complete {
+              val blob = req.entity.asString
+              val (nulls, breaks) = blob.split(';').partition(_.contains("null"))
+
+              // Handle NODATA
+              nulls.headOption.foreach { case (str: String) =>
+                val hexColor = str.split(':')(1)
+                noDataColors.update(breaksName, BigInt(hexColor, 16).toInt)
+              }
+
+              // Handle normal breaks
+              ColorBreaks.fromStringInt(breaks.mkString(";")) match {
+                case Some(breaks) => {
+                  println(s"Registered Breaks: $breaksName")
+                  colorBreaks.update(breaksName, breaks)
+                  StatusCodes.OK
+                }
+                case None => {
+                  StatusCodes.BadRequest
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+  def registerFloatColorBreaksRoute =
+=======
+  def registerIntColorBreaksRoute =
+    pathPrefix(Segment) { breaksName =>
+      post {
+        requestInstance { req =>
+          respondWithHeader(RawHeader("Access-Control-Allow-Origin", "*")) {
+            complete {
+              val blob = req.entity.asString
+              val (nulls, breaks) = blob.split(';').partition(_.contains("null"))
+
+              // Handle NODATA
+              nulls.headOption.foreach { case (str: String) =>
+                val hexColor = str.split(':')(1)
+                noDataColors.update(breaksName, BigInt(hexColor, 16).toInt)
+                println(s"Registered NoDataColor: $breaksName")
+              }
+
+              // Handle normal breaks
+              ColorBreaks.fromStringInt(breaks.mkString(";")) match {
+                case Some(breaks) => {
+                  println(s"Registered Breaks: $breaksName")
+                  colorBreaks.update(breaksName, breaks)
+                  StatusCodes.OK
+                }
+                case None => {
+                  StatusCodes.BadRequest
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+  def registerFloatColorBreaksRoute =
     pathPrefix(Segment) { breaksName =>
       post {
         requestInstance { req =>
@@ -151,7 +221,6 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
             complete {
               val blob = req.entity.asString
               registerBreaks(breaksName, blob)
-              StatusCodes.OK
             }
           }
         }
