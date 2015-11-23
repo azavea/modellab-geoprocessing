@@ -4,9 +4,10 @@ import akka.actor.ActorSystem
 
 import geotrellis.raster._
 import geotrellis.raster.render._
-import scala.collection.mutable
+import scala.collection.concurrent
 import scala.concurrent._
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.Try
 
 import spray.http._
 import spray.httpx.encoding._
@@ -63,7 +64,8 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
   implicit val system = ActorSystem("spray-system")
   implicit val sc = geotrellis.spark.utils.SparkUtils.createLocalSparkContext("local[*]", "Model Service")
 
-  val colorBreaks = mutable.HashMap.empty[String, ColorBreaks]
+  val colorBreaks = concurrent.TrieMap.empty[String, ColorBreaks]
+  val noDataColors = concurrent.TrieMap.empty[String, Int]
 
   val registry = try {
     new LayerRegistry(layerReader)
@@ -71,6 +73,28 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
     case e: AmazonClientException =>
       system.shutdown()
       throw new AmazonClientException(e.getMessage())
+  }
+
+  def registerBreaks(breaksName: String, breaksString: String): StatusCode = {
+    val (nulls, breaks) = breaksString.split(';').partition(_.contains("null"))
+
+    // Handle NODATA
+    nulls.headOption.foreach { case (str: String) =>
+      val hexColor = str.split(':')(1)
+      noDataColors.update(breaksName, BigInt(hexColor, 16).toInt)
+    }
+
+    // Handle normal breaks
+    ColorBreaks.fromStringInt(breaks.mkString(";")) match {
+      case Some(breaks) => {
+        println(s"Registered Breaks: $breaksName")
+        colorBreaks.update(breaksName, breaks)
+        StatusCodes.OK
+      }
+      case None => {
+        StatusCodes.BadRequest
+      }
+    }
   }
 
   def registerBreak(breaksName : String, blob : String) = {
@@ -103,12 +127,12 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
             JsonMerge(renderedJson, requestJson).asJsObject
           }
         }
-      } 
-    } ~ 
+      }
+    } ~
     get {
       pathPrefix(Segment) { layerHash =>
-        complete{          
-          registry.getLayerJson(layerHash) 
+        complete{
+          registry.getLayerJson(layerHash)
         }
       } ~
       pathEnd {
@@ -125,7 +149,8 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
         requestInstance { req =>
           respondWithHeader(RawHeader("Access-Control-Allow-Origin", "*")) {
             complete {
-              registerBreak(breaksName, req.entity.asString)
+              val blob = req.entity.asString
+              registerBreaks(breaksName, blob)
               StatusCodes.OK
             }
           }
@@ -137,17 +162,18 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
   def renderRoute = pathPrefix(Segment / IntNumber / IntNumber / IntNumber) { (hash, zoom, x, y) =>
     parameters('breaks.?) { breaksName =>
       respondWithMediaType(MediaTypes.`image/png`) {
-        complete{ 
+        complete{
           def render(tile: Tile): Array[Byte] = {
             for {
               name <- breaksName
               breaks <- colorBreaks.get(name)
-            } yield tile.renderPng(breaks).bytes
+              // noDataColors.getOrElse outside comprehension b/c lacking `map` implementation
+            } yield tile.renderPng(breaks, noDataColors.getOrElse(name, 0)).bytes
           }.getOrElse(tile.renderPng().bytes)
 
           for { optionFutureTile <- registry.getTile(hash, zoom, x, y) } yield
-            for { optionTile <- optionFutureTile }  yield 
-              for (tile <- optionTile) yield render(tile)                               
+            for { optionTile <- optionFutureTile }  yield
+              for (tile <- optionTile) yield render(tile)
         }
       }
     }
