@@ -21,6 +21,42 @@ import spray.http.HttpHeaders.RawHeader
 
 import com.amazonaws.AmazonClientException
 
+object StaticConfig {
+  import java.lang.Class
+  import scala.io.Source
+
+  def resourceToString(resource : String) = {
+    Source.fromInputStream(getClass.getResourceAsStream(resource)).mkString
+  }
+
+  val layers = List(
+    "/layers/canopy2001.json",
+    "/layers/census2010popsqmi.json",
+    "/layers/census2010popsqmiQuantile.json",
+    "/layers/census2010totalpop.json",
+    "/layers/census2010totalpopQuantile.json",
+    "/layers/census2013income.json",
+    "/layers/census2013incomeQuantile.json",
+    "/layers/elevation.json",
+    "/layers/impervious2001.json",
+    "/layers/impervious2011.json",
+    "/layers/landcover2006.json",
+    "/layers/landcover2011.json",
+    "/layers/landsatBlue.json",
+    "/layers/landsatGreen.json",
+    "/layers/landsatNir.json",
+    "/layers/landsatRed.json",
+    "/layers/nlcd.json",
+    "/layers/reclass2011.json",
+    "/layers/trees2011.json",
+    "/layers/water2011.json"
+  )
+    .map(resourceToString)
+    .map { str : String => str.parseJson }
+
+  val breaks = List("nlcd", "tr").zip(List("/breaks/nlcd.data", "/breaks/tr.data").map(resourceToString))
+}
+
 object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented with App {
   private[this] lazy val requestTimer = metrics.timer("tileRequest")
 
@@ -36,6 +72,23 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
       system.shutdown()
       throw new AmazonClientException(e.getMessage())
   }
+
+  def registerBreak(breaksName : String, blob : String) = {
+    import java.math.BigInteger
+
+    val breaks = {
+      val split = blob.split(";").map(_.trim.split(":"))
+      val limits = split.map(pair => Integer.parseInt(pair(0)))
+      val colors = split.map(pair => new BigInteger(pair(1), 16).intValue())
+      ColorBreaks(limits, colors)
+    }
+    colorBreaks.update(breaksName, breaks)
+    println(s"Registered Breaks: $breaksName")
+  }
+
+  // Register static configuration
+  StaticConfig.layers.map { x => registry.register(x) }
+  StaticConfig.breaks.map { x => registerBreak(x._1, x._2) }
 
   val pingPong = path("ping")(complete("pong"))
 
@@ -72,19 +125,7 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
         requestInstance { req =>
           respondWithHeader(RawHeader("Access-Control-Allow-Origin", "*")) {
             complete {
-              import java.math.BigInteger
-
-              val blob = req.entity.asString
-              val breaks = {
-                val split = blob.split(";").map(_.trim.split(":"))
-                logger.debug(split.toList.toString)
-                val limits = split.map(pair => Integer.parseInt(pair(0)))
-                val colors = split.map(pair => new BigInteger(pair(1), 16).intValue())
-                ColorBreaks(limits, colors)
-              }
-
-              colorBreaks.update(breaksName, breaks)
-              println(s"Registered Breaks: $breaksName")
+              registerBreak(breaksName, req.entity.asString)
               StatusCodes.OK
             }
           }
