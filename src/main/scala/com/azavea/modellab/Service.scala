@@ -55,7 +55,43 @@ object StaticConfig {
     .map(resourceToString)
     .map { str : String => str.parseJson }
 
-  val breaks = List("nlcd", "tr").zip(List("/breaks/nlcd.data", "/breaks/tr.data").map(resourceToString))
+  val breaks = List(
+    "black-0-1",
+    "black-0-100",
+    "blue-0-1",
+    "blue-0-100",
+    "cm",
+    "dosc",
+    "elevation",
+    "green-0-1",
+    "green-0-100",
+    "landsat",
+    "nlcd",
+    "nlcd-reclass",
+    "purple-0-100000",
+    "red-0-1000",
+    "rosc",
+    "tpi",
+    "tr"
+  ).zip(List(
+    "/breaks/black-0-1.data",
+    "/breaks/black-0-100.data",
+    "/breaks/blue-0-1.data",
+    "/breaks/blue-0-100.data",
+    "/breaks/cm.data",
+    "/breaks/dosc.data",
+    "/breaks/elevation.data",
+    "/breaks/green-0-1.data",
+    "/breaks/green-0-100.data",
+    "/breaks/landsat.data",
+    "/breaks/nlcd.data",
+    "/breaks/nlcd-reclass.data",
+    "/breaks/purple-0-100000.data",
+    "/breaks/red-0-1000.data",
+    "/breaks/rosc.data",
+    "/breaks/tpi.data",
+    "/breaks/tr.data"
+  ).map(resourceToString))
 }
 
 object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented with App {
