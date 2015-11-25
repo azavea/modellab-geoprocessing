@@ -276,7 +276,7 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
     }
 
     def write(o: LocalUnary) =
-      writeNode(o, s"Local${o.name}", "constant" -> 0.toJson)
+      writeNode(o, s"${o.name}", "constant" -> 0.toJson)
   }
 
   implicit object FocalFormat extends JsonFormat[Focal] {
