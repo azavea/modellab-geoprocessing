@@ -26,6 +26,10 @@ object StaticConfig {
   import java.lang.Class
   import scala.io.Source
 
+  def nameToResource(name : String) = {
+    s"/breaks/$name.data"
+  }
+
   def resourceToString(resource : String) = {
     Source.fromInputStream(getClass.getResourceAsStream(resource)).mkString
   }
@@ -55,7 +59,7 @@ object StaticConfig {
     .map(resourceToString)
     .map { str : String => str.parseJson }
 
-  val breaks = List(
+  private val breakNames = List(
     "black-0-1",
     "black-0-100",
     "blue-0-1",
@@ -66,32 +70,19 @@ object StaticConfig {
     "green-0-1",
     "green-0-100",
     "landsat",
+    "ndvi",
     "nlcd",
     "nlcd-reclass",
     "purple-0-100000",
     "red-0-1000",
     "rosc",
     "tpi",
-    "tr"
-  ).zip(List(
-    "/breaks/black-0-1.data",
-    "/breaks/black-0-100.data",
-    "/breaks/blue-0-1.data",
-    "/breaks/blue-0-100.data",
-    "/breaks/cm.data",
-    "/breaks/dosc.data",
-    "/breaks/elevation.data",
-    "/breaks/green-0-1.data",
-    "/breaks/green-0-100.data",
-    "/breaks/landsat.data",
-    "/breaks/nlcd.data",
-    "/breaks/nlcd-reclass.data",
-    "/breaks/purple-0-100000.data",
-    "/breaks/red-0-1000.data",
-    "/breaks/rosc.data",
-    "/breaks/tpi.data",
-    "/breaks/tr.data"
-  ).map(resourceToString))
+    "tr",
+    "vari",
+    "vgi"
+  )
+
+  val breaks = breakNames zip breakNames.map { s => resourceToString(nameToResource(s)) }
 }
 
 object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented with App {
