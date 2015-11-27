@@ -4,9 +4,10 @@ import akka.actor.ActorSystem
 
 import geotrellis.raster._
 import geotrellis.raster.render._
-import scala.collection.mutable
+import scala.collection.concurrent
 import scala.concurrent._
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.{Try, Success, Failure}
 
 import spray.http._
 import spray.httpx.encoding._
@@ -21,13 +22,77 @@ import spray.http.HttpHeaders.RawHeader
 
 import com.amazonaws.AmazonClientException
 
+object StaticConfig {
+  import java.lang.Class
+  import scala.io.Source
+
+  def nameToResource(name : String) = {
+    s"/breaks/$name.data"
+  }
+
+  def resourceToString(resource : String) = {
+    Source.fromInputStream(getClass.getResourceAsStream(resource)).mkString
+  }
+
+  val layers = List(
+    "/layers/canopy2001.json",
+    "/layers/census2010popsqmi.json",
+    "/layers/census2010popsqmiQuantile.json",
+    "/layers/census2010totalpop.json",
+    "/layers/census2010totalpopQuantile.json",
+    "/layers/census2013income.json",
+    "/layers/census2013incomeQuantile.json",
+    "/layers/elevation.json",
+    "/layers/impervious2001.json",
+    "/layers/impervious2011.json",
+    "/layers/landcover2006.json",
+    "/layers/landcover2011.json",
+    "/layers/landsatBlue.json",
+    "/layers/landsatGreen.json",
+    "/layers/landsatNir.json",
+    "/layers/landsatRed.json",
+    "/layers/nlcd.json",
+    "/layers/reclass2011.json",
+    "/layers/trees2011.json",
+    "/layers/water2011.json"
+  )
+    .map(resourceToString)
+    .map { str : String => str.parseJson }
+
+  private val breakNames = List(
+    "black-0-1",
+    "black-0-100",
+    "blue-0-1",
+    "blue-0-100",
+    "cm",
+    "dosc",
+    "elevation",
+    "green-0-1",
+    "green-0-100",
+    "landsat",
+    "ndvi",
+    "nlcd",
+    "nlcd-reclass",
+    "purple-0-100000",
+    "red-0-1000",
+    "rosc",
+    "tpi",
+    "tr",
+    "vari",
+    "vgi"
+  )
+
+  val breaks = breakNames zip breakNames.map { s => resourceToString(nameToResource(s)) }
+}
+
 object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented with App {
   private[this] lazy val requestTimer = metrics.timer("tileRequest")
 
   implicit val system = ActorSystem("spray-system")
   implicit val sc = geotrellis.spark.utils.SparkUtils.createLocalSparkContext("local[*]", "Model Service")
 
-  val colorBreaks = mutable.HashMap.empty[String, ColorBreaks]
+  val colorBreaks = concurrent.TrieMap.empty[String, ColorBreaks]
+  val noDataColors = concurrent.TrieMap.empty[String, Int]
 
   val registry = try {
     new LayerRegistry(layerReader)
@@ -36,6 +101,37 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
       system.shutdown()
       throw new AmazonClientException(e.getMessage())
   }
+
+  def registerBreaks(breaksName: String, breaksString: String): StatusCode = {
+    val (nulls, breaks) = breaksString.split(';').partition(_.contains("null"))
+    val colorBreaksFromString: String => Option[ColorBreaks] =
+      Try(breaks.map(_.split(':')(0)).foreach(Integer.parseInt(_))) match {
+        case Success(_) => ColorBreaks.fromStringInt
+        case Failure(_) => ColorBreaks.fromStringDouble
+      }
+
+    // Handle NODATA
+    nulls.headOption.foreach { case (str: String) =>
+      val hexColor = str.split(':')(1)
+      noDataColors.update(breaksName, BigInt(hexColor, 16).toInt)
+    }
+
+    // Handle normal breaks
+    colorBreaksFromString(breaks.mkString(";")) match {
+      case Some(breaks) => {
+        println(s"Registered Breaks: $breaksName")
+        colorBreaks.update(breaksName, breaks)
+        StatusCodes.OK
+      }
+      case None => {
+        StatusCodes.BadRequest
+      }
+    }
+  }
+
+  // Register static configuration
+  StaticConfig.layers.foreach { x => registry.register(x) }
+  StaticConfig.breaks.foreach { x => registerBreaks(x._1, x._2) }
 
   val pingPong = path("ping")(complete("pong"))
 
@@ -50,12 +146,12 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
             JsonMerge(renderedJson, requestJson).asJsObject
           }
         }
-      } 
-    } ~ 
+      }
+    } ~
     get {
       pathPrefix(Segment) { layerHash =>
-        complete{          
-          registry.getLayerJson(layerHash) 
+        complete{
+          registry.getLayerJson(layerHash)
         }
       } ~
       pathEnd {
@@ -72,41 +168,29 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
         requestInstance { req =>
           respondWithHeader(RawHeader("Access-Control-Allow-Origin", "*")) {
             complete {
-              import java.math.BigInteger
-
               val blob = req.entity.asString
-              val breaks = {
-                val split = blob.split(";").map(_.trim.split(":"))
-                logger.debug(split.toList.toString)
-                val limits = split.map(pair => Integer.parseInt(pair(0)))
-                val colors = split.map(pair => new BigInteger(pair(1), 16).intValue())
-                ColorBreaks(limits, colors)
-              }
-
-              colorBreaks.update(breaksName, breaks)
-              println(s"Registered Breaks: $breaksName")
-              StatusCodes.OK
+              registerBreaks(breaksName, blob)
             }
           }
         }
       }
     }
 
-
   def renderRoute = pathPrefix(Segment / IntNumber / IntNumber / IntNumber) { (hash, zoom, x, y) =>
     parameters('breaks.?) { breaksName =>
       respondWithMediaType(MediaTypes.`image/png`) {
-        complete{ 
+        complete{
           def render(tile: Tile): Array[Byte] = {
             for {
               name <- breaksName
               breaks <- colorBreaks.get(name)
-            } yield tile.renderPng(breaks).bytes
+              // noDataColors.getOrElse outside comprehension b/c lacking `map` implementation
+            } yield tile.renderPng(breaks, noDataColors.getOrElse(name, 0)).bytes
           }.getOrElse(tile.renderPng().bytes)
 
           for { optionFutureTile <- registry.getTile(hash, zoom, x, y) } yield
-            for { optionTile <- optionFutureTile }  yield 
-              for (tile <- optionTile) yield render(tile)                               
+            for { optionTile <- optionFutureTile }  yield
+              for (tile <- optionTile) yield render(tile)
         }
       }
     }
