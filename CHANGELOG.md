@@ -1,3 +1,11 @@
+## 0.4.1
+
+- The static configuration files for layers and color breaks have been moved into the .jar file.
+- The Geotrellis dependency has been updated to enable floating-point color breaks.
+- Many new color breaks have been added.
+- A bug relating to how "LocalUnary*" operations are echoed has been fixed.
+- A "ConvertToFloat" operation has been added to allow floating-point rasters to result from integer-raster inputs.
+
 ## 0.4.0
 
 - Added operation for masking values between specified ranges.
