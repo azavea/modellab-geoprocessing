@@ -30,6 +30,10 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
               FocalSlopeFormat.read(json)
             case "MapValues" =>
               MapValuesFormat.read(json)
+            case "MapRanges" =>
+              MapRangesFormat.read(json)
+            case "ConvertToFloat" =>
+              CoerceFormat.read(json)
             case name if name.startsWith("LocalUnary") =>
               LocalUnaryFormat.read(json)
             case name if name.startsWith("Local") =>
@@ -57,6 +61,10 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
         FocalAspectFormat.write(op)
       case op: MapValues =>
         MapValuesFormat.write(op)
+      case op: MapRanges =>
+        MapRangesFormat.write(op)
+      case op: Coerce =>
+        CoerceFormat.write(op)
     }
   }
 
@@ -138,6 +146,25 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
     }
   }
 
+  implicit object CoerceFormat extends JsonFormat[Coerce] {
+    def read(json: JsValue) = {
+      Coerce(json.inputs.head)
+    }
+
+    def write(o: Coerce) =
+      writeNode(o, "ConvertToFloat", "ConvertToFloat" -> true.toJson)
+  }
+
+  implicit object MapRangesFormat extends JsonFormat[MapRanges] {
+    def read(json: JsValue) = {
+      val mappings = json.param[Seq[((Double, Double), Option[Double])]]("mappings")
+      MapRanges(json.inputs.head, mappings)
+    }
+
+    def write(o: MapRanges) =
+      writeNode(o, s"MapRanges", "mappings" -> o.mappings.toJson)
+  }
+
   implicit object MapValuesFormat extends JsonFormat[MapValues] {
     def read(json: JsValue) = {
       val mappings = json.param[Seq[(Seq[Int], Option[Int])]]("mappings")
@@ -153,8 +180,8 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
       LoadLayer(json.param[String]("layer_name"), windowedReader)
     }
 
-    def write(o: LoadLayer) = 
-      writeNode(o, s"LoadLayer", "layer_name" -> JsString(o.layerName)) 
+    def write(o: LoadLayer) =
+      writeNode(o, s"LoadLayer", "layer_name" -> JsString(o.layerName))
   }
 
   implicit object FocalAspectFormat extends JsonFormat[FocalAspect] {
@@ -249,7 +276,7 @@ class NodeFormats(windowedReader: WindowedReader, layerLookup: String => Option[
     }
 
     def write(o: LocalUnary) =
-      writeNode(o, s"Local${o.name}", "constant" -> 0.toJson)
+      writeNode(o, s"${o.name}", "constant" -> 0.toJson)
   }
 
   implicit object FocalFormat extends JsonFormat[Focal] {

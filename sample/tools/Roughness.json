@@ -1,21 +1,18 @@
 {
-  "name": "LocalSubtract",
-  "inputs": [
-    {
-      "name": "FocalMax",
-      "neighborhood": {
-        "shape": "square",
-        "size": 1
-      },
-      "inputs": ["GVWWZ5Y"]
-    },
-    {
-      "name": "FocalMin",
-      "neighborhood": {
-        "shape": "square",
-        "size": 1
-      },
-      "inputs": ["GVWWZ5Y"]
-    }
-  ]
+    "name": "LocalSubtract",
+    "inputs": [{
+        "name": "FocalMax",
+        "neighborhood": {
+            "shape": "square",
+            "size": 1
+        },
+        "inputs": ["GVWWZ5Y"]
+    }, {
+        "name": "FocalMin",
+        "neighborhood": {
+            "shape": "square",
+            "size": 1
+        },
+        "inputs": ["GVWWZ5Y"]
+    }]
 }
