@@ -1,3 +1,7 @@
+## 0.4.2
+
+- Fix color breaks for NDVI, VARI, and VGI.
+
 ## 0.4.1
 
 - The static configuration files for layers and color breaks have been moved into the .jar file.
