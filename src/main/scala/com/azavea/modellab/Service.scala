@@ -50,12 +50,12 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
             JsonMerge(renderedJson, requestJson).asJsObject
           }
         }
-      } 
-    } ~ 
+      }
+    } ~
     get {
       pathPrefix(Segment) { layerHash =>
-        complete{          
-          registry.getLayerJson(layerHash) 
+        complete{
+          registry.getLayerJson(layerHash)
         }
       } ~
       pathEnd {
@@ -96,7 +96,7 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
   def renderRoute = pathPrefix(Segment / IntNumber / IntNumber / IntNumber) { (hash, zoom, x, y) =>
     parameters('breaks.?) { breaksName =>
       respondWithMediaType(MediaTypes.`image/png`) {
-        complete{ 
+        complete{
           def render(tile: Tile): Array[Byte] = {
             for {
               name <- breaksName
@@ -105,8 +105,8 @@ object Service extends SimpleRoutingApp with DataHubCatalog with Instrumented wi
           }.getOrElse(tile.renderPng().bytes)
 
           for { optionFutureTile <- registry.getTile(hash, zoom, x, y) } yield
-            for { optionTile <- optionFutureTile }  yield 
-              for (tile <- optionTile) yield render(tile)                               
+            for { optionTile <- optionFutureTile }  yield
+              for (tile <- optionTile) yield render(tile)
         }
       }
     }

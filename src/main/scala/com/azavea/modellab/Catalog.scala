@@ -31,14 +31,16 @@ trait DataHubCatalog extends Catalog with Instrumented {
   private val bucket = "azavea-datahub"
   private val key = "catalog"
 
-
-  val cacheTemplate = config.getString("cache.location")
-  val cache = (id: LayerId) => new FileCache(cacheTemplate.format(id.name, id.zoom), _.toString)
+  val cacheFunction: Option[LayerId => FileCache] =
+    if (config.hasPath("cache.location")) {
+      val cacheTemplate = config.getString("cache.location")
+      Some((id: LayerId) => new FileCache(cacheTemplate.format(id.name, id.zoom), _.toString))
+    } else None
 
   lazy val layerReader = new S3LayerReader[SpatialKey, Tile, RasterRDD[SpatialKey]](
       new S3AttributeStore(bucket, key),
       new S3RDDReader[SpatialKey, Tile],
-      Some(cache)) {
+      cacheFunction) {
 
     override val defaultNumPartitions = math.max(1, sc.defaultParallelism)
 
